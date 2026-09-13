@@ -7,7 +7,7 @@ The tool is the runner. Its other subcommands exist to keep the runner
 working on a machine: a check that git push and commit signing work, the
 per-project values a session needs, and the keychain that holds them.
 
-Status: design. No code yet. See the issues.
+Status: early. `ag git` exists; the rest is in the issues.
 
 ## `ag git`
 
@@ -45,4 +45,4 @@ Git is routed to the key by the `env` block of the Claude Code settings file
 because git runs `gpg.ssh.program` without a shell. `ag git check` exits 0
 and prints the key's fingerprint when the routing is present, GitHub accepts
 the key and a test signature succeeds; otherwise it exits 1 with a one-line
-cause. The runner runs it before it claims the first ticket.
+cause. The runner is to run it before it claims the first ticket.

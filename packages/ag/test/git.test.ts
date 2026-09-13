@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { FINGERPRINT, makeSandbox, PRIVATE_KEY, ROUTING, type Sandbox } from "./stubs";
 
 let sb: Sandbox;
@@ -41,9 +42,7 @@ describe("ag git check", () => {
   });
 
   test("fails with a one-line cause when the keychain has no key", () => {
-    sb.cleanup();
-    sb = makeSandbox();
-    sb.routing(ROUTING);
+    sb.clearKey();
     const r = sb.run(["git", "check"]);
     expect(r.code).toBe(1);
     expect(r.stderr.trim().split("\n")).toHaveLength(1);
@@ -94,6 +93,31 @@ describe("ag git check", () => {
     expect(r.stderr).toContain("GIT_SSH_COMMAND");
   });
 
+  test("fails with a one-line cause when a routed program is missing", () => {
+    sb.routing({ ...ROUTING, GIT_CONFIG_VALUE_1: `${sb.dir}/no-such-sign` });
+    const r = sb.run(["git", "check"]);
+    expect(r.code).toBe(1);
+    expect(r.stderr.trim().split("\n")).toHaveLength(1);
+    expect(r.stderr).toContain("no-such-sign");
+  });
+
+  test("fails with a one-line cause when the settings file is malformed", () => {
+    writeFileSync(`${sb.env.CLAUDE_CONFIG_DIR}/settings.json`, "{ nope");
+    const r = sb.run(["git", "check"]);
+    expect(r.code).toBe(1);
+    expect(r.stderr.trim().split("\n")).toHaveLength(1);
+    expect(r.stderr).toContain("settings.json");
+  });
+
+  test("removes a stale lock after the wait, so the next run recovers", () => {
+    sb.staleLock();
+    const r = sb.run(["git", "check"]);
+    expect(r.code).toBe(1);
+    expect(r.stderr).toContain("timed out");
+    expect(existsSync(`${sb.socket}.lock`)).toBe(false);
+    expect(sb.run(["git", "check"]).code).toBe(0);
+  }, 15_000);
+
   test("reports a signing key that is not the agent's key", () => {
     sb.routing({ ...ROUTING, GIT_CONFIG_VALUE_2: "ssh-ed25519 AAAAother" });
     const r = sb.run(["git", "check"]);
@@ -116,7 +140,7 @@ describe("ag git ssh / sign", () => {
     const r = sb.run(["git", "ssh", "git@github.com", "git-upload-pack 'x/y.git'"]);
     expect(r.code).toBe(1);
     expect(sb.calls()).toContain(
-      `ssh -o IdentityAgent=${sb.socket} git@github.com git-upload-pack 'x/y.git'`,
+      `ssh -o IdentityAgent=${sb.socket} -o IdentitiesOnly=no git@github.com git-upload-pack 'x/y.git'`,
     );
   });
 
@@ -133,7 +157,9 @@ describe("ag git ssh / sign", () => {
   test("ag-git-ssh and ag-git-sign are argument-free entry points", () => {
     const ssh = sb.run(["git@github.com"], { program: "ag-git-ssh.ts" });
     expect(ssh.code).toBe(1);
-    expect(sb.calls()).toContain(`ssh -o IdentityAgent=${sb.socket} git@github.com`);
+    expect(sb.calls()).toContain(
+      `ssh -o IdentityAgent=${sb.socket} -o IdentitiesOnly=no git@github.com`,
+    );
     const sign = sb.run(["-Y", "sign"], { program: "ag-git-sign.ts", stdin: "" });
     expect(sign.code).toBe(0);
     expect(sb.calls()).toContain("ssh-keygen -Y sign");
@@ -142,8 +168,7 @@ describe("ag git ssh / sign", () => {
 
 describe("ag git import", () => {
   test("stores the key from stdin in the keychain and verifies the round trip", () => {
-    sb.cleanup();
-    sb = makeSandbox();
+    sb.clearKey();
     const r = sb.run(["git", "import"], { stdin: PRIVATE_KEY });
     expect(r.stderr).toBe("");
     expect(r.code).toBe(0);
@@ -161,7 +186,7 @@ describe("ag git import", () => {
 
   test("a key read back from a hex-encoded keychain value loads unchanged", () => {
     sb.run(["git", "check"]);
-    expect(Bun.file(`${sb.dir}/loaded-key`).text()).resolves.toBe(PRIVATE_KEY);
+    expect(readFileSync(`${sb.dir}/loaded-key`, "utf8")).toBe(PRIVATE_KEY);
   });
 });
 

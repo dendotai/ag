@@ -22,7 +22,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { homedir, tmpdir } from "node:os";
+import { constants, homedir, tmpdir } from "node:os";
 import { join } from "node:path";
 
 export const KEYCHAIN_ITEM = "agent-git-ssh-key";
@@ -44,12 +44,16 @@ const die = (cause: string): never => {
   throw new GitError(cause);
 };
 
-export const socketPath = () =>
-  join(process.env.TMPDIR ?? tmpdir(), `agent-git-${process.getuid?.() ?? 0}.sock`);
+const firstLine = (s: string) => s.trim().split("\n")[0] ?? "";
 
-type Run = { code: number; stdout: string; stderr: string };
+export const socketPath = () => join(tmpdir(), `agent-git-${process.getuid?.() ?? 0}.sock`);
 
-function run(cmd: string[], opts: { env?: Record<string, string>; stdin?: string } = {}): Run {
+type RunResult = { code: number; stdout: string; stderr: string };
+
+function run(
+  cmd: string[],
+  opts: { env?: Record<string, string>; stdin?: string } = {},
+): RunResult {
   const r = Bun.spawnSync(cmd, {
     env: { ...process.env, ...opts.env },
     stdin: opts.stdin === undefined ? "ignore" : Buffer.from(opts.stdin),
@@ -59,33 +63,29 @@ function run(cmd: string[], opts: { env?: Record<string, string>; stdin?: string
   return { code: r.exitCode, stdout: r.stdout.toString(), stderr: r.stderr.toString() };
 }
 
-/** Replace this process with `cmd`, as far as bun allows: same stdio, same exit code. */
+/** Run a command against the agent at `sock`. */
+const agentRun = (sock: string, cmd: string[], stdin?: string) =>
+  run(cmd, { env: { SSH_AUTH_SOCK: sock }, stdin });
+
+/** Replace this process with `cmd`, as far as bun allows: same stdio, same exit status. */
 function exec(cmd: string[], env: Record<string, string> = {}): never {
   const r = Bun.spawnSync(cmd, {
     env: { ...process.env, ...env },
     stdio: ["inherit", "inherit", "inherit"],
   });
-  process.exit(r.exitCode);
+  // A child killed by a signal has no exit code; report it the way a shell does.
+  const signal = r.signalCode as keyof typeof constants.signals | null;
+  process.exit(signal ? 128 + constants.signals[signal] : r.exitCode);
 }
-
-const agentEnv = (sock: string) => ({ SSH_AUTH_SOCK: sock });
 
 // Exit code 2 from `ssh-add -l` means "cannot reach an agent"; 1 means alive
 // but empty, which a fresh agent is.
-const agentAlive = (sock: string) => run(["ssh-add", "-l"], { env: agentEnv(sock) }).code <= 1;
-const agentHasKey = (sock: string) => run(["ssh-add", "-l"], { env: agentEnv(sock) }).code === 0;
+const agentAlive = (sock: string) => agentRun(sock, ["ssh-add", "-l"]).code <= 1;
+const agentHasKey = (sock: string) => agentRun(sock, ["ssh-add", "-l"]).code === 0;
 
-/** The private key from the keychain, or null when the item is absent. */
 function readKey(): string | null {
-  const r = run([
-    "security",
-    "find-generic-password",
-    "-a",
-    process.env.USER ?? "",
-    "-s",
-    KEYCHAIN_ITEM,
-    "-w",
-  ]);
+  const user = process.env.USER ?? "";
+  const r = run(["security", "find-generic-password", "-a", user, "-s", KEYCHAIN_ITEM, "-w"]);
   if (r.code !== 0) return null;
   // `security -w` prints a value that contains newlines as one hex line.
   const raw = r.stdout.trim();
@@ -95,11 +95,10 @@ function readKey(): string | null {
 function loadKey(sock: string) {
   const key =
     readKey() ?? die(`keychain item ${KEYCHAIN_ITEM} missing or unreadable — run: ag git import`);
-  const r = run(["ssh-add", "-q", "-"], { env: agentEnv(sock), stdin: key });
-  if (r.code !== 0) die(`ssh-add refused the keychain key: ${r.stderr.trim()}`);
+  const r = agentRun(sock, ["ssh-add", "-q", "-"], key);
+  if (r.code !== 0) die(`ssh-add refused the keychain key: ${firstLine(r.stderr)}`);
 }
 
-/** Start the agent and load the key when needed; return the socket path. */
 export function ensureAgent(): string {
   const sock = socketPath();
   if (agentHasKey(sock)) return sock;
@@ -108,12 +107,16 @@ export function ensureAgent(): string {
   // the agent, the other waits for it.
   try {
     mkdirSync(lock);
-  } catch {
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code !== "EEXIST") throw e;
     for (let i = 0; i < 50; i++) {
       if (agentHasKey(sock)) return sock;
       Bun.sleepSync(100);
     }
-    die("timed out waiting for another session to start the agent");
+    // The holder is gone (killed before its cleanup) or failed; the next
+    // run must not wait on its lock again.
+    rmSync(lock, { recursive: true, force: true });
+    die("timed out waiting for another session to start the agent — run again");
   }
   try {
     if (!agentAlive(sock)) {
@@ -131,18 +134,18 @@ export function cmdSocket() {
   console.log(ensureAgent());
 }
 
+// The developer's ~/.ssh/config may point every host at another agent and
+// restrict identities to its files; command-line options outrank the config.
+const sshArgs = (sock: string) => ["-o", `IdentityAgent=${sock}`, "-o", "IdentitiesOnly=no"];
+
 export function cmdSsh(args: string[]): never {
-  const sock = ensureAgent();
-  // The developer's ~/.ssh/config may point every host at another agent; a
-  // command-line option outranks the config file.
-  exec(["ssh", "-o", `IdentityAgent=${sock}`, ...args]);
+  exec(["ssh", ...sshArgs(ensureAgent()), ...args]);
 }
 
 export function cmdSign(args: string[]): never {
-  const sock = ensureAgent();
   // git passes: -Y sign -n git -f <pubkey file> <buffer>. With no private
   // key file beside the public one, ssh-keygen signs through SSH_AUTH_SOCK.
-  exec(["ssh-keygen", ...args], agentEnv(sock));
+  exec(["ssh-keygen", ...args], { SSH_AUTH_SOCK: ensureAgent() });
 }
 
 // --- routing -------------------------------------------------------------
@@ -157,11 +160,14 @@ type Routing = {
 const settingsPath = () =>
   join(process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude"), "settings.json");
 
-/** The git routing declared in the env block of the Claude Code settings file. */
 export function readRouting(path = settingsPath()): Routing {
   if (!existsSync(path)) return {};
-  const settings = JSON.parse(readFileSync(path, "utf8")) as { env?: Record<string, string> };
-  const env = settings.env ?? {};
+  let env: Record<string, string> = {};
+  try {
+    env = (JSON.parse(readFileSync(path, "utf8")) as { env?: Record<string, string> }).env ?? {};
+  } catch (e) {
+    die(`cannot parse ${path}: ${(e as Error).message}`);
+  }
   const routing: Routing = {};
   if (env.GIT_SSH_COMMAND) routing.GIT_SSH_COMMAND = env.GIT_SSH_COMMAND;
   const count = Number(env.GIT_CONFIG_COUNT ?? 0);
@@ -174,7 +180,9 @@ export function readRouting(path = settingsPath()): Routing {
   return routing;
 }
 
-function checkRouting(pubkey: string) {
+type Routed = { sshCommand: string; signProgram: string };
+
+function checkRouting(pubkey: string): Routed {
   const routing = readRouting();
   const missing: string[] = (
     ["GIT_SSH_COMMAND", "gpg.ssh.program", "user.signingkey"] as const
@@ -188,6 +196,10 @@ function checkRouting(pubkey: string) {
       `user.signingkey in ${settingsPath()} is not the agent key (${keyPart(pubkey).slice(0, 40)}…)`,
     );
   }
+  return {
+    sshCommand: routing.GIT_SSH_COMMAND ?? "",
+    signProgram: routing["gpg.ssh.program"] ?? "",
+  };
 }
 
 // --- check ---------------------------------------------------------------
@@ -195,42 +207,36 @@ function checkRouting(pubkey: string) {
 export type CheckResult = { ok: true; fingerprint: string } | { ok: false; cause: string };
 
 /**
- * Prove that push auth and a test signature work through the agent key and
- * that git is routed to it. The runner calls this before it claims a ticket.
+ * Prove that push auth and a test signature work through the programs the
+ * settings file routes git to. The runner calls this before it claims a ticket.
  */
 export function gitCheck(): CheckResult {
   try {
     const sock = ensureAgent();
-    const pubkey = run(["ssh-add", "-L"], { env: agentEnv(sock) }).stdout.split("\n")[0] ?? "";
-    const fingerprint = run(["ssh-add", "-l"], { env: agentEnv(sock) }).stdout.split(" ")[1] ?? "";
-    checkRouting(pubkey);
-    const auth = run([
-      "ssh",
-      "-o",
-      `IdentityAgent=${sock}`,
-      "-o",
-      "IdentitiesOnly=no",
-      "-T",
-      "git@github.com",
-    ]);
+    const pubkey = firstLine(agentRun(sock, ["ssh-add", "-L"]).stdout);
+    const fingerprint = agentRun(sock, ["ssh-add", "-l"]).stdout.split(" ")[1] ?? "";
+    const routed = checkRouting(pubkey);
+    // Git runs GIT_SSH_COMMAND through the shell with ssh's arguments appended.
+    const auth = run(["sh", "-c", `${routed.sshCommand} "$@"`, "sh", "-T", "git@github.com"]);
     const authOut = `${auth.stdout}${auth.stderr}`;
     if (!authOut.includes("successfully authenticated"))
-      die(`GitHub auth failed: ${authOut.trim().split("\n")[0]}`);
-    const tmp = mkdtempSync(join(process.env.TMPDIR ?? tmpdir(), "ag-git-"));
+      die(`GitHub auth failed: ${firstLine(authOut)}`);
+    const tmp = mkdtempSync(join(tmpdir(), "ag-git-"));
     try {
       const pubFile = join(tmp, "key.pub");
       writeFileSync(pubFile, `${pubkey}\n`);
-      const sig = run(["ssh-keygen", "-Y", "sign", "-n", "git", "-f", pubFile], {
-        env: agentEnv(sock),
+      const sig = run([routed.signProgram, "-Y", "sign", "-n", "git", "-f", pubFile], {
         stdin: "probe\n",
       });
-      if (sig.code !== 0) die(`test signature failed: ${sig.stderr.trim().split("\n")[0]}`);
+      if (sig.code !== 0) die(`test signature failed: ${firstLine(sig.stderr)}`);
     } finally {
       rmSync(tmp, { recursive: true, force: true });
     }
     return { ok: true, fingerprint };
   } catch (e) {
     if (e instanceof GitError) return { ok: false, cause: e.message };
+    if ((e as NodeJS.ErrnoException).code === "ENOENT")
+      return { ok: false, cause: `routed program not found: ${(e as NodeJS.ErrnoException).path}` };
     throw e;
   }
 }
@@ -245,7 +251,8 @@ export function cmdCheck() {
 
 /**
  * Store the private key in the login keychain. Run once, with the secret
- * manager unlocked, for example: `op read 'op://<vault>/<item>/private key?ssh-format=openssh' | ag git import`.
+ * manager unlocked, for example:
+ * `op read 'op://<vault>/<item>/private key?ssh-format=openssh' | ag git import`.
  * The key never touches argv or disk: it goes hex-encoded on stdin into `security -i`.
  */
 export function cmdImport(stdin: string) {
@@ -254,9 +261,10 @@ export function cmdImport(stdin: string) {
   const key = stdin.endsWith("\n") ? stdin : `${stdin}\n`;
   const hex = Buffer.from(key).toString("hex");
   const label = "agent-git (agent sessions SSH+signing key; source: the secret manager)";
-  const line = `add-generic-password -a "${process.env.USER ?? ""}" -s ${KEYCHAIN_ITEM} -l "${label}" -X ${hex} -U\n`;
+  const user = process.env.USER ?? "";
+  const line = `add-generic-password -a "${user}" -s ${KEYCHAIN_ITEM} -l "${label}" -X ${hex} -U\n`;
   const r = run(["security", "-i"], { stdin: line });
-  if (r.code !== 0) die(`security refused the key: ${r.stderr.trim()}`);
+  if (r.code !== 0) die(`security refused the key: ${firstLine(r.stderr)}`);
   if (readKey() !== key) die("keychain round trip differs from the key on stdin");
   console.log(`ag git: key stored in the login keychain as ${KEYCHAIN_ITEM}`);
 }

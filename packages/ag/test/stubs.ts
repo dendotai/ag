@@ -11,14 +11,14 @@ export const FINGERPRINT = "SHA256:stubfingerprintstubfingerprintstubfingerprint
 export const PRIVATE_KEY =
   "-----BEGIN OPENSSH PRIVATE KEY-----\nc3R1Yg==\n-----END OPENSSH PRIVATE KEY-----\n";
 
+export type Sandbox = ReturnType<typeof makeSandbox>;
+
 /**
  * A sandbox with fake `ssh-agent`, `ssh-add`, `ssh`, `ssh-keygen` and
  * `security` first on PATH. Their state lives in files under `dir`, so a
  * test can arrange the keychain, the agent and GitHub's answer, and read
  * back every invocation from `calls`.
  */
-export type Sandbox = ReturnType<typeof makeSandbox>;
-
 export function makeSandbox() {
   const dir = mkdtempSync(join(tmpdir(), "ag-git-"));
   const bin = join(dir, "bin");
@@ -100,11 +100,12 @@ exit 0`,
     dir,
     socket: join(tmp, `agent-git-${process.getuid?.() ?? 0}.sock`),
     env,
-    /** Put the private key into the fake keychain. */
     storeKey(key = PRIVATE_KEY) {
       writeFileSync(join(dir, "keychain"), key);
     },
-    /** Write the machine's Claude Code settings file with the given env block. */
+    clearKey() {
+      rmSync(join(dir, "keychain"), { force: true });
+    },
     routing(envBlock: Record<string, string> | null) {
       writeFileSync(
         join(claude, "settings.json"),
@@ -113,6 +114,10 @@ exit 0`,
     },
     fail(what: "github" | "sign" | "agent") {
       writeFileSync(join(dir, `${what}-fail`), "");
+    },
+    /** Leave a lock dir behind, as a session killed while starting the agent would. */
+    staleLock() {
+      mkdirSync(`${this.socket}.lock`);
     },
     calls(): string[] {
       try {
@@ -145,13 +150,15 @@ exit 0`,
   return sb;
 }
 
+// The settings file routes git to the bin entries under test, which reach
+// the stub ssh and ssh-keygen through PATH.
 export const ROUTING = {
-  GIT_SSH_COMMAND: "/usr/local/bin/ag-git-ssh",
+  GIT_SSH_COMMAND: join(binDir, "ag-git-ssh.ts"),
   GIT_CONFIG_COUNT: "3",
   GIT_CONFIG_KEY_0: "gpg.format",
   GIT_CONFIG_VALUE_0: "ssh",
   GIT_CONFIG_KEY_1: "gpg.ssh.program",
-  GIT_CONFIG_VALUE_1: "/usr/local/bin/ag-git-sign",
+  GIT_CONFIG_VALUE_1: join(binDir, "ag-git-sign.ts"),
   GIT_CONFIG_KEY_2: "user.signingkey",
   GIT_CONFIG_VALUE_2: PUBKEY,
 };
