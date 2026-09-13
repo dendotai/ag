@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { inTempDir } from "../test/temp-dir.ts";
 import {
   type Git,
   heldPorts,
@@ -12,27 +12,9 @@ import {
   upsertEnvFile,
 } from "./worktree.ts";
 
-function withDir(fn: (dir: string) => void) {
-  const dir = mkdtempSync(join(tmpdir(), "ag-worktree-"));
-  try {
-    fn(dir);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-}
-
-async function withDirAsync(fn: (dir: string) => Promise<void>) {
-  const dir = mkdtempSync(join(tmpdir(), "ag-worktree-"));
-  try {
-    await fn(dir);
-  } finally {
-    rmSync(dir, { recursive: true, force: true });
-  }
-}
-
 describe("upsertEnvFile", () => {
   test("creates the file with one line per entry", () => {
-    withDir((dir) => {
+    return inTempDir((dir) => {
       const path = join(dir, ".env.local");
       upsertEnvFile(path, { PORT: "3001", VITE_CONVEX_URL: "https://x.convex.cloud" });
       expect(readFileSync(path, "utf8")).toBe(
@@ -42,7 +24,7 @@ describe("upsertEnvFile", () => {
   });
 
   test("replaces the line of a key that exists and keeps every other line", () => {
-    withDir((dir) => {
+    return inTempDir((dir) => {
       const path = join(dir, ".dev.vars");
       writeFileSync(path, "# keep this comment\nCONVEX_URL=old\nCLOUDFLARE_API_TOKEN=keep-me");
       upsertEnvFile(path, { CONVEX_URL: "new", EXTRA: "1" });
@@ -55,13 +37,13 @@ describe("upsertEnvFile", () => {
 
 describe("parseEnvFile", () => {
   test("returns an empty map for a missing file", () => {
-    withDir((dir) => {
+    return inTempDir((dir) => {
       expect(parseEnvFile(join(dir, "nope"))).toEqual({});
     });
   });
 
   test("reads KEY=value lines and drops trailing comments", () => {
-    withDir((dir) => {
+    return inTempDir((dir) => {
       const path = join(dir, ".env.local");
       writeFileSync(path, "# c\nPORT=3005 # chosen\nEMPTY=\nnot a line\n");
       expect(parseEnvFile(path)).toEqual({ PORT: "3005", EMPTY: "" });
@@ -102,7 +84,7 @@ describe("isWorktree", () => {
 
 describe("heldPorts", () => {
   test("collects the PORT each sibling worktree holds in its port file, skipping this checkout", () => {
-    withDir((dir) => {
+    return inTempDir((dir) => {
       const here = join(dir, "here");
       const a = join(dir, "a");
       const b = join(dir, "b");
@@ -159,14 +141,14 @@ describe("planSetup", () => {
     });
 
   test("main checkout: own environment, the main port, no expiration", async () => {
-    await withDirAsync(async (root) => {
+    await inTempDir(async (root) => {
       const plan = await planSetup({ root, git: mainGit, portFile: ".env", isFree: free });
       expect(plan).toEqual({ name: null, port: 3000, expires: null });
     });
   });
 
   test("worktree: named after the directory, a band port, 14 days", async () => {
-    await withDirAsync(async (dir) => {
+    await inTempDir(async (dir) => {
       const root = join(dir, "impl-3");
       mkdirSync(root);
       const plan = await planSetup({
@@ -180,7 +162,7 @@ describe("planSetup", () => {
   });
 
   test("worktree rerun keeps the port already in its port file", async () => {
-    await withDirAsync(async (dir) => {
+    await inTempDir(async (dir) => {
       const root = join(dir, "impl-3");
       mkdirSync(root);
       writeFileSync(join(root, ".env"), "PORT=3007\n");
@@ -195,7 +177,7 @@ describe("planSetup", () => {
   });
 
   test("worktree: never hands out a port a sibling holds", async () => {
-    await withDirAsync(async (dir) => {
+    await inTempDir(async (dir) => {
       const root = join(dir, "impl-3");
       const sibling = join(dir, "impl-2");
       mkdirSync(root);
@@ -208,7 +190,7 @@ describe("planSetup", () => {
   });
 
   test("--name forces the worktree form in the main checkout", async () => {
-    await withDirAsync(async (root) => {
+    await inTempDir(async (root) => {
       const plan = await planSetup({
         root,
         git: mainGit,
@@ -221,7 +203,7 @@ describe("planSetup", () => {
   });
 
   test("--port and --expires override the engine's decisions", async () => {
-    await withDirAsync(async (dir) => {
+    await inTempDir(async (dir) => {
       const root = join(dir, "impl-3");
       mkdirSync(root);
       const plan = await planSetup({

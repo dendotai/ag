@@ -4,21 +4,12 @@ import { join } from "node:path";
 import {
   callsNamed,
   envValue,
-  makeProject,
   type Project,
   REQUIRED_VARS,
   readEnv,
+  withProject,
 } from "../../test/convex-project.ts";
 import { convexAdapter } from "./convex.ts";
-
-async function withProject(fn: (project: Project) => Promise<void>) {
-  const project = makeProject();
-  try {
-    await fn(project);
-  } finally {
-    project.cleanup();
-  }
-}
 
 const adapterOf = (project: Project) =>
   convexAdapter({ root: project.root, apiDir: project.apiDir });
@@ -51,8 +42,7 @@ describe("convex adapter: an isolated environment", () => {
       // The push comes last: every value is on the deployment by then.
       expect(calls.at(-1)).toEqual(["dev", "--once"]);
 
-      const [deployment] = project.deployments();
-      if (!deployment) throw new Error("no deployment");
+      const deployment = project.deployment();
       expect(Object.keys(deployment.vars).sort()).toEqual([...REQUIRED_VARS].sort());
       expect(deployment.vars.BETTER_AUTH_SECRET?.length).toBeGreaterThanOrEqual(32);
       expect(deployment.vars.SITE_URL).toBe("http://localhost:3005");
@@ -117,8 +107,7 @@ describe("convex adapter: the developer's own environment", () => {
       expect(create).not.toContain("--expiration");
       expect(calls.at(-1)).toEqual(["dev", "--once"]);
 
-      const [deployment] = project.deployments();
-      if (!deployment) throw new Error("no deployment");
+      const deployment = project.deployment();
       expect(deployment.isDefault).toBe(true);
       expect(deployment.vars.SITE_URL).toBe("http://localhost:3000");
       expect(values).toEqual({ CONVEX_URL: `https://${deployment.name}.convex.cloud` });
@@ -142,9 +131,8 @@ describe("convex adapter: the developer's own environment", () => {
 });
 
 describe("convex adapter: writeEnv", () => {
-  test("writes CONVEX_URL to .dev.vars and PORT + VITE_CONVEX_URL to .env.local, keeping other lines", () => {
-    const project = makeProject();
-    try {
+  test("writes CONVEX_URL to .dev.vars and PORT + VITE_CONVEX_URL to .env.local, keeping other lines", () =>
+    withProject((project) => {
       writeFileSync(
         join(project.root, "apps/web/.dev.vars"),
         "CONVEX_URL=https://old.convex.cloud\nCLOUDFLARE_API_TOKEN=keep-me\n",
@@ -156,20 +144,13 @@ describe("convex adapter: writeEnv", () => {
       const envLocal = readEnv(project.root, "apps/web/.env.local");
       expect(envValue(envLocal, "PORT")).toBe("3005");
       expect(envValue(envLocal, "VITE_CONVEX_URL")).toBe("https://new.convex.cloud");
-    } finally {
-      project.cleanup();
-    }
-  });
+    }));
 
-  test("writes no PORT line when the values carry none", () => {
-    const project = makeProject();
-    try {
+  test("writes no PORT line when the values carry none", () =>
+    withProject((project) => {
       adapterOf(project).writeEnv({ CONVEX_URL: "https://new.convex.cloud" });
       expect(envValue(readEnv(project.root, "apps/web/.env.local"), "PORT")).toBeUndefined();
-    } finally {
-      project.cleanup();
-    }
-  });
+    }));
 });
 
 describe("convex adapter: refuses to guess", () => {

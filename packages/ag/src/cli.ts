@@ -29,12 +29,17 @@ function parseFlags(argv: string[]): Record<string, string> {
   return out;
 }
 
-function setupOverrides(flags: Record<string, string>): SetupOverrides {
+type SetupFlags = { name?: string; port?: string; expires?: string };
+
+function setupOverrides(flags: SetupFlags): SetupOverrides {
   const overrides: SetupOverrides = {};
   for (const key of Object.keys(flags)) {
     if (!["name", "port", "expires"].includes(key)) throw new UsageError(`unknown flag: --${key}`);
   }
-  if (flags.name !== undefined) overrides.name = flags.name;
+  if (flags.name !== undefined) {
+    if (flags.name === "") throw new UsageError("--name must not be empty");
+    overrides.name = flags.name;
+  }
   if (flags.port !== undefined) {
     const port = Number(flags.port);
     if (!Number.isInteger(port) || port <= 0)

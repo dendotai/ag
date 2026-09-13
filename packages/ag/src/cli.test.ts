@@ -85,8 +85,7 @@ describe("ag setup in a worktree", () => {
         ],
       ]);
       expect(callsNamed(calls, "dev", "--once")).toHaveLength(1);
-      const [deployment] = repo.deployments();
-      if (!deployment) throw new Error("no deployment");
+      const deployment = repo.deployment();
       expect(Object.keys(deployment.vars).sort()).toEqual([...REQUIRED_VARS].sort());
 
       const envLocal = readEnv(wt, "apps/web/.env.local");
@@ -138,8 +137,7 @@ describe("ag setup in a worktree", () => {
       expect(setup(wt).status).toBe(0);
 
       expect(callsNamed(repo.calls(), "deployment", "create")).toHaveLength(1);
-      const [deployment] = repo.deployments();
-      if (!deployment) throw new Error("no deployment");
+      const deployment = repo.deployment();
       const envLocal = readEnv(wt, "apps/web/.env.local");
       const url = `https://${deployment.name}.convex.cloud`;
       expect(url).not.toBe(oldUrl);
@@ -178,8 +176,7 @@ describe("ag setup in the main checkout", () => {
       const [create] = callsNamed(repo.calls(), "deployment", "create");
       expect(create).toContain("--default");
       expect(create).not.toContain("--expiration");
-      const [deployment] = repo.deployments();
-      if (!deployment) throw new Error("no deployment");
+      const deployment = repo.deployment();
       expect(deployment.vars.SITE_URL).toBe("http://localhost:3000");
       expect(envValue(readEnv(repo.root, "apps/web/.env.local"), "PORT")).toBeUndefined();
       const devVars = readEnv(repo.root, "apps/web/.dev.vars");
@@ -220,10 +217,11 @@ describe("ag setup flags", () => {
     });
   });
 
-  test("rejects a bad --expires or --port before any convex call", () => {
+  test("rejects a bad --expires, --port or --name before any convex call", () => {
     withRepo((repo) => {
       expect(setup(repo.root, "--expires", "soon").status).toBe(2);
       expect(setup(repo.root, "--port", "abc").status).toBe(2);
+      expect(setup(repo.root, "--name", "").status).toBe(2);
       expect(repo.calls()).toEqual([]);
     });
   });

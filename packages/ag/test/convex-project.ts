@@ -112,6 +112,8 @@ export interface Project {
   calls(): string[][];
   clearCalls(): void;
   deployments(): Deployment[];
+  /** The one deployment the fake holds; throws when there is none or several. */
+  deployment(): Deployment;
   setVars(vars: Record<string, string>): void;
   expire(ref: string): void;
   refuseCreate(): void;
@@ -157,6 +159,14 @@ export function makeProject(): Project {
     deployments() {
       return Object.values(readState().deployments);
     },
+    deployment() {
+      const all = Object.values(readState().deployments);
+      const [only] = all;
+      if (only === undefined || all.length !== 1) {
+        throw new Error(`expected one deployment, found ${all.length}`);
+      }
+      return only;
+    },
     setVars(vars) {
       const data = readState();
       for (const d of Object.values(data.deployments)) d.vars = vars;
@@ -176,6 +186,15 @@ export function makeProject(): Project {
       rmSync(dir, { recursive: true, force: true });
     },
   };
+}
+
+export async function withProject(fn: (project: Project) => void | Promise<void>) {
+  const project = makeProject();
+  try {
+    await fn(project);
+  } finally {
+    project.cleanup();
+  }
 }
 
 export const readEnv = (dir: string, path: string) => readFileSync(join(dir, path), "utf8");

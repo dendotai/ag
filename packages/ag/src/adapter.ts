@@ -5,18 +5,17 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { convexAdapter } from "./adapters/convex.ts";
-import type { EnvValues, SetupPlan } from "./worktree.ts";
+import type { SetupPlan } from "./worktree.ts";
 
-export interface Adapter {
+/** `Values` is the adapter's own shape; the engine only passes it from provision to writeEnv. */
+export interface Adapter<Values = unknown> {
   name: string;
-  /** The workspace directory the stack's CLI runs in. */
-  apiDir: string;
   /** Path, relative to the project root, of the env file that records PORT. */
   portFile: string;
   /** Creates or reuses the environment and returns the values the project's env files need. */
-  provision(plan: SetupPlan): Promise<EnvValues>;
-  writeEnv(values: EnvValues): void;
-  /** Removes the environment of that name. Used by `ag sweep`. */
+  provision(plan: SetupPlan): Promise<Values>;
+  writeEnv(values: Values): void;
+  /** Used by `ag sweep`. */
   teardown(name: string): Promise<void>;
 }
 

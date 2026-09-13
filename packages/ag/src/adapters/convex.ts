@@ -1,17 +1,9 @@
 // Convex adapter: one dev deployment per environment, selected or created
 // through the project's own `convex` CLI, whose login is the credential.
-//
-// What one provision does, in order:
-//   1. `convex deployment select`; when that fails (no such deployment yet,
-//      or it expired) `convex deployment create --select`. Either way the
-//      API package's `.env.local` now names it.
-//   2. Set the values the first push needs and that the deployment lacks: a
-//      generated BETTER_AUTH_SECRET, SITE_URL=http://localhost:<port>, and
-//      placeholder Google client values. Values already set are never touched.
-//   3. `convex dev --once`: one push, so the deployment matches the checkout.
-//
 // The isolated form is `<team>:<project>:dev/agent/<name>`; the developer's
-// own environment is the project's personal dev deployment.
+// own environment is the project's personal dev deployment. A failed select
+// means the deployment does not exist yet or expired, so create replaces it;
+// values already set on a deployment are never touched.
 
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -19,7 +11,13 @@ import { readFileSync } from "node:fs";
 import { userInfo } from "node:os";
 import { delimiter, join, relative } from "node:path";
 import type { Adapter } from "../adapter.ts";
-import { type EnvValues, parseEnvFile, type SetupPlan, upsertEnvFile } from "../worktree.ts";
+import { parseEnvFile, type SetupPlan, upsertEnvFile } from "../worktree.ts";
+
+export interface ConvexEnv {
+  CONVEX_URL: string;
+  /** Present for an isolated environment; the developer's own keeps the app's default port. */
+  PORT?: string;
+}
 
 const PLACEHOLDER_SLUGS = { team: "your-convex-team", project: "your-convex-project" };
 const GOOGLE_PLACEHOLDER = "placeholder";
@@ -54,7 +52,7 @@ function readSlugs(root: string, apiDir: string): { team: string; project: strin
   return { team, project };
 }
 
-export function convexAdapter(input: { root: string; apiDir: string }): Adapter {
+export function convexAdapter(input: { root: string; apiDir: string }): Adapter<ConvexEnv> {
   const { root, apiDir } = input;
   const binDirs = [join(root, "node_modules/.bin"), join(apiDir, "node_modules/.bin")];
 
@@ -79,10 +77,9 @@ export function convexAdapter(input: { root: string; apiDir: string }): Adapter 
 
   return {
     name: "convex",
-    apiDir,
     portFile: `${WEB_DIR}/.env.local`,
 
-    async provision(plan: SetupPlan): Promise<EnvValues> {
+    async provision(plan: SetupPlan): Promise<ConvexEnv> {
       const { team, project } = readSlugs(root, apiDir);
       const isolated = plan.name !== null;
       const selector =
@@ -137,9 +134,7 @@ export function convexAdapter(input: { root: string; apiDir: string }): Adapter 
       return { CONVEX_URL: url, ...(isolated ? { PORT: String(plan.port) } : {}) };
     },
 
-    writeEnv(values: EnvValues): void {
-      const { CONVEX_URL, PORT } = values;
-      if (CONVEX_URL === undefined) throw new Error("writeEnv needs CONVEX_URL");
+    writeEnv({ CONVEX_URL, PORT }: ConvexEnv): void {
       upsertEnvFile(join(root, WEB_DIR, ".dev.vars"), { CONVEX_URL });
       upsertEnvFile(join(root, WEB_DIR, ".env.local"), {
         ...(PORT === undefined ? {} : { PORT }),
