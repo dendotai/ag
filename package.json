@@ -1,0 +1,35 @@
+{
+  "name": "@den-ai/ag",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "Run unattended coding-agent sessions over a repository's ready tickets, one session per ticket, each in its own git worktree.",
+  "license": "MIT",
+  "author": "Den Kasyanov",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dendotai/ag.git"
+  },
+  "homepage": "https://github.com/dendotai/ag#readme",
+  "bugs": "https://github.com/dendotai/ag/issues",
+  "bin": {
+    "ag": "packages/ag/src/cli.ts"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "engines": {
+    "bun": ">=1.2"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "test": "bun test",
+    "check": "bun run lint && bun run typecheck && bun run test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.13",
+    "@types/bun": "^1.2.21",
+    "typescript": "^5.9.2"
+  }
+}
