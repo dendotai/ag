@@ -1,5 +1,6 @@
 {
   "compilerOptions": {
+    /* Base options */
     "esModuleInterop": true,
     "skipLibCheck": true,
     "target": "es2022",
@@ -8,14 +9,18 @@
     "moduleDetection": "force",
     "isolatedModules": true,
     "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+
+    /* Strictness */
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "noImplicitOverride": true,
+
+    /* Not transpiling with tsc: bun runs the TypeScript directly */
     "module": "preserve",
     "noEmit": true,
-    "allowImportingTsExtensions": true,
     "lib": ["es2022"],
     "types": ["bun"]
   },
-  "include": ["packages/**/*.ts"]
+  "include": ["packages"]
 }

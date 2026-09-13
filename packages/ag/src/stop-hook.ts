@@ -35,7 +35,19 @@ function stopSession(sessionId: string): void {
 }
 
 async function ticketLabels(n: number, cwd: string): Promise<string> {
-  const res = await run(["gh", "issue", "view", String(n), "--json", "state,labels", "--jq", '[.state, .labels[].name] | join(" ")'], cwd);
+  const res = await run(
+    [
+      "gh",
+      "issue",
+      "view",
+      String(n),
+      "--json",
+      "state,labels",
+      "--jq",
+      '[.state, .labels[].name] | join(" ")',
+    ],
+    cwd,
+  );
   return res.ok ? res.out : "(gh failed)";
 }
 
@@ -62,7 +74,8 @@ export async function stopHook(input: HookInput): Promise<void> {
   // A closed ticket has its state labels stripped, so the state is checked too.
   const labels = await ticketLabels(n, input.cwd);
   const words = labels.split(" ");
-  if (words.includes("CLOSED") || words.includes("in-review") || words.includes("needs-human")) return stopSession(sid);
+  if (words.includes("CLOSED") || words.includes("in-review") || words.includes("needs-human"))
+    return stopSession(sid);
 
   const max = maxBlocks();
   const count = countRefusal(sid);

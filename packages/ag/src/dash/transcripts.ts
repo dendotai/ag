@@ -4,7 +4,8 @@ import { join } from "node:path";
 // Claude Code keeps a session's transcript under
 // ~/.claude/projects/<slug>/<session-id>.jsonl, where the slug is the
 // session's cwd with "/" and "_" replaced by "-".
-export const transcriptPrefix = (root: string): string => `${root.replace(/[/_]/g, "-")}--claude-worktrees-impl-`;
+export const transcriptPrefix = (root: string): string =>
+  `${root.replace(/[/_]/g, "-")}--claude-worktrees-impl-`;
 
 export type TicketRef = { root: string; ticket: number };
 

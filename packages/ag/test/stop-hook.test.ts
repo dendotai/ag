@@ -66,7 +66,9 @@ test("closed ticket: the session is stopped, detached and without CLAUDECODE", a
   const res = await hook(ticket7, { STUB_GH_OUT: "CLOSED" });
   expect(res.exitCode).toBe(0);
   expect(res.stdout).toBe("");
-  expect(calls()).toContain('gh issue view 7 --json state,labels --jq [.state, .labels[].name] | join(" ")');
+  expect(calls()).toContain(
+    'gh issue view 7 --json state,labels --jq [.state, .labels[].name] | join(" ")',
+  );
   expect(await waitForStop()).toBe(stopCall);
 });
 
@@ -102,7 +104,9 @@ test("refusals past the cap: the session is stopped anyway", async () => {
 });
 
 test("an unreadable cap falls back to the default", async () => {
-  expect(await blockReason(ticket7, { STUB_GH_OUT: "OPEN", AGENT_MAX_STOP_BLOCKS: "many" })).toContain("Stop refusal 1 of 5.");
+  expect(
+    await blockReason(ticket7, { STUB_GH_OUT: "OPEN", AGENT_MAX_STOP_BLOCKS: "many" }),
+  ).toContain("Stop refusal 1 of 5.");
 });
 
 test("cwd that is not an impl-N worktree: the session is stopped without asking gh", async () => {

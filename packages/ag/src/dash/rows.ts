@@ -5,9 +5,22 @@
 import { shortSessionId, ticketOfPath } from "../ticket.ts";
 import type { TicketRef } from "./transcripts.ts";
 
-export type Session = { sessionId: string; status?: string | null; kind: string; cwd: string; startedAt: number; name?: string };
+export type Session = {
+  sessionId: string;
+  status?: string | null;
+  kind: string;
+  cwd: string;
+  startedAt: number;
+  name?: string;
+};
 export type Issue = { number: number; title: string; url: string; labels: { name: string }[] };
-export type Pr = { number: number; isDraft: boolean; url: string; body: string | null; headRefName: string };
+export type Pr = {
+  number: number;
+  isDraft: boolean;
+  url: string;
+  body: string | null;
+  headRefName: string;
+};
 export type Repo = { root: string; name: string; issues: Issue[]; prs: Pr[]; pushed: Set<string> };
 export type Worktree = { root: string; ticket: number; branch: string; ahead: number };
 
@@ -31,7 +44,13 @@ export type Row = {
   title: string;
   issueUrl: string | null;
   stateLabels: string[];
-  session: { id: string; kind: string; status: SessionStatus; startedAt: number; name: string } | null;
+  session: {
+    id: string;
+    kind: string;
+    status: SessionStatus;
+    startedAt: number;
+    name: string;
+  } | null;
   branch: { name: string; ahead: number; pushed: boolean } | null;
   pr: { number: number; draft: boolean; url: string } | null;
   verdict: Verdict;
@@ -71,8 +90,15 @@ export function buildRows(s: Sources): Row[] {
   for (const sess of s.sessions) {
     const root = s.sessionRoots.get(sess.cwd) ?? null;
     const repo = s.repos.find((r) => r.root === root);
-    const status: SessionStatus = sess.status === "busy" ? "running" : sess.kind === "background" ? "finished" : "idle";
-    const session = { id: shortSessionId(sess.sessionId), kind: sess.kind, status, startedAt: sess.startedAt, name: sess.name ?? "" };
+    const status: SessionStatus =
+      sess.status === "busy" ? "running" : sess.kind === "background" ? "finished" : "idle";
+    const session = {
+      id: shortSessionId(sess.sessionId),
+      kind: sess.kind,
+      status,
+      startedAt: sess.startedAt,
+      name: sess.name ?? "",
+    };
     const hit = s.sessionTickets.get(sess.sessionId);
     const n = hit && repo && hit.root === repo.root ? hit.ticket : ticketOfPath(sess.cwd);
     if (repo && n) {
@@ -95,12 +121,19 @@ export function buildRows(s: Sources): Row[] {
   for (const wt of s.worktrees) {
     const repo = s.repos.find((r) => r.root === wt.root);
     if (!repo) continue;
-    ticketRow(repo, wt.ticket).branch = { name: wt.branch, ahead: wt.ahead, pushed: repo.pushed.has(wt.branch) };
+    ticketRow(repo, wt.ticket).branch = {
+      name: wt.branch,
+      ahead: wt.ahead,
+      pushed: repo.pushed.has(wt.branch),
+    };
   }
   for (const repo of s.repos) {
     for (const p of repo.prs) {
       const m = /closes\s+#(\d+)/i.exec(p.body ?? "");
-      const n = m ? Number(m[1]) : [...rows.values()].find((r) => r.repo === repo.name && r.branch?.name === p.headRefName)?.ticket;
+      const n = m
+        ? Number(m[1])
+        : [...rows.values()].find((r) => r.repo === repo.name && r.branch?.name === p.headRefName)
+            ?.ticket;
       if (!n) continue;
       ticketRow(repo, n).pr = { number: p.number, draft: p.isDraft, url: p.url };
     }
@@ -120,7 +153,11 @@ export function buildRows(s: Sources): Row[] {
       const repo = s.repos.find((x) => x.name === r.repo);
       return repo?.issues.some((i) => i.number === r.ticket) || r.verdict === "running" || r.pr;
     })
-    .sort((a, b) => a.repo.localeCompare(b.repo) || (a.ticket ?? Number.MAX_SAFE_INTEGER) - (b.ticket ?? Number.MAX_SAFE_INTEGER));
+    .sort(
+      (a, b) =>
+        a.repo.localeCompare(b.repo) ||
+        (a.ticket ?? Number.MAX_SAFE_INTEGER) - (b.ticket ?? Number.MAX_SAFE_INTEGER),
+    );
 }
 
 export function parseWorktrees(porcelain: string): Map<number, { path: string; branch: string }> {

@@ -18,7 +18,13 @@ const pr = (number: number, isDraft: boolean, body: string, headRefName: string)
   body,
   headRefName,
 });
-const session = (sessionId: string, cwd: string, startedAt: number, status: string | null = null, kind = "background"): Session => ({
+const session = (
+  sessionId: string,
+  cwd: string,
+  startedAt: number,
+  status: string | null = null,
+  kind = "background",
+): Session => ({
   sessionId,
   kind,
   cwd,
@@ -45,10 +51,19 @@ const sources: Sources = {
         issue(5, "idle one", "in-progress"),
         issue(9, "untouched one", "ready-for-agent"),
       ],
-      prs: [pr(20, false, "Closes #2\n\nbody", "feature/two"), pr(30, true, "no closing line", "feature/three")],
+      prs: [
+        pr(20, false, "Closes #2\n\nbody", "feature/two"),
+        pr(30, true, "no closing line", "feature/three"),
+      ],
       pushed: new Set(["feature/two", "feature/three"]),
     },
-    { root: other, name: "o/other", issues: [issue(3, "other three", "in-progress")], prs: [], pushed: new Set() },
+    {
+      root: other,
+      name: "o/other",
+      issues: [issue(3, "other three", "in-progress")],
+      prs: [],
+      pushed: new Set(),
+    },
   ],
   sessions: [
     session("11111111-aaaa", wt(1), 100, "busy"),
@@ -112,7 +127,13 @@ test("a closed ticket stays only while a session runs", () => {
 });
 
 test("session: short id, kind, status, start time and name; the newest session wins", () => {
-  expect(row(1)?.session).toEqual({ id: "11111111", kind: "background", status: "running", startedAt: 100, name: "session 11111111" });
+  expect(row(1)?.session).toEqual({
+    id: "11111111",
+    kind: "background",
+    status: "running",
+    startedAt: 100,
+    name: "session 11111111",
+  });
   expect(row(4)?.session?.status).toBe("finished");
 });
 
@@ -159,11 +180,15 @@ test("parseWorktrees maps impl-N worktrees to their branch", () => {
     "detached",
     "",
   ].join("\n");
-  expect(parseWorktrees(porcelain)).toEqual(new Map([[12, { path: "/repo/.claude/worktrees/impl-12", branch: "feature/twelve" }]]));
+  expect(parseWorktrees(porcelain)).toEqual(
+    new Map([[12, { path: "/repo/.claude/worktrees/impl-12", branch: "feature/twelve" }]]),
+  );
 });
 
 test("transcriptPrefix encodes the repo root the way Claude Code does", () => {
-  expect(transcriptPrefix("/Users/den/Projects/_tools/ag")).toBe("-Users-den-Projects--tools-ag--claude-worktrees-impl-");
+  expect(transcriptPrefix("/Users/den/Projects/_tools/ag")).toBe(
+    "-Users-den-Projects--tools-ag--claude-worktrees-impl-",
+  );
 });
 
 test("readSessionTickets maps transcript files to their repo and ticket", () => {
@@ -176,7 +201,9 @@ test("readSessionTickets maps transcript files to their repo and ticket", () => 
     mkdirSync(join(projects, `${prefix}x`));
     writeFileSync(join(projects, `${prefix}6`), "a file, not a directory");
     mkdirSync(join(projects, "-other-repo"));
-    expect(readSessionTickets(projects, ["/repo"])).toEqual(new Map([["aaaa-1111", { root: "/repo", ticket: 5 }]]));
+    expect(readSessionTickets(projects, ["/repo"])).toEqual(
+      new Map([["aaaa-1111", { root: "/repo", ticket: 5 }]]),
+    );
     expect(readSessionTickets(join(projects, "missing"), ["/repo"])).toEqual(new Map());
   } finally {
     rmSync(projects, { recursive: true, force: true });

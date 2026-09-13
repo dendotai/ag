@@ -1,7 +1,10 @@
 // CLAUDECODE marks a running Claude Code session and blocks nested `claude`
 // commands, so every child runs without it: the dashboard and the stop hook
 // both start inside a session at times.
-export const childEnv = (): Record<string, string | undefined> => ({ ...process.env, CLAUDECODE: undefined });
+export const childEnv = (): Record<string, string | undefined> => ({
+  ...process.env,
+  CLAUDECODE: undefined,
+});
 
 export type RunResult = { ok: boolean; out: string };
 
