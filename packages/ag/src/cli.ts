@@ -7,11 +7,11 @@ const usage = `usage: ag <command>
   stop-hook   Stop hook of a runner session (reads the hook JSON on stdin)
 `;
 
-const [command, ...args] = process.argv.slice(2);
+const command = process.argv[2];
 
 switch (command) {
   case "dash":
-    await (await import("./dash/serve.ts")).dashMain(args);
+    await (await import("./dash/serve.ts")).dashMain();
     break;
   case "stop-hook":
     await (await import("./stop-hook.ts")).stopHookMain();

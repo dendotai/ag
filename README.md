@@ -13,32 +13,34 @@ Status: design, first subcommands landing. See the issues.
 
 ### `ag dash`
 
-A local dashboard over the runner's tickets of the current repository: one
-row per ticket that has a worktree, a session, a state label or a pull
-request. Run it from anywhere inside the repository and open
+A local dashboard over every Claude session on the machine. Repositories are
+discovered from the sessions' working directories, plus the one the
+dashboard starts in. One row per ticket that has a worktree, a session, a
+state label or a pull request in its repository; a session without a ticket
+(an interactive chat, other background work) gets a row of its own. Open
 `http://localhost:7878`.
 
 | Column  | Content                                                                 |
 | ------- | ----------------------------------------------------------------------- |
-| Ticket  | number with link, title                                                 |
+| Ticket  | number with link, title; for a ticketless session its kind and name    |
 | Status  | `running`, `done`, `parked`, `stalled` or `idle` (see below)            |
-| Session | short session id, running or finished, start time                       |
+| Session | short session id, running, finished or idle, start time                 |
 | Branch  | name, commits ahead of the default branch, pushed to the remote or not  |
 | PR      | number with link, `draft` when it is one                                |
 | Labels  | the ticket's state labels                                               |
 
 Status: `running` while the session is busy; `parked` when the ticket carries
 `needs-human`; `done` when a non-draft pull request is open; `stalled` when
-the session ended without a pull request and without parking; `idle` when
-only a label is present. A closed ticket stays listed only while a session
-runs or a pull request is open.
+a background session ended without a pull request and without parking;
+`idle` otherwise. A closed ticket stays listed only while a session runs or
+a pull request is open; a finished ticketless session is not listed.
 
 Sources: `claude agents --json --all`, `git worktree list`, `gh issue list`,
-`gh pr list` and `git ls-remote`. A finished session no longer reports its
-worktree, so it is mapped to its ticket through the transcript directory
-`~/.claude/projects/<cwd-slug>/<session-id>.jsonl`. Local sources are polled
-every 2 seconds, GitHub every 10, and the page polls the JSON endpoint
-`/api/state` every 5.
+`gh pr list` and `git ls-remote`. A finished background session no longer
+reports its worktree, so it is mapped to its ticket through the transcript
+directory `~/.claude/projects/<cwd-slug>/<session-id>.jsonl`. Local sources
+are polled every 2 seconds, GitHub every 10, and the page polls the JSON
+endpoint `/api/state` every 5.
 
 | Variable             | Default | Meaning                              |
 | -------------------- | ------- | ------------------------------------ |

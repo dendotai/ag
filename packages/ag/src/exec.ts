@@ -7,7 +7,7 @@ export type RunResult = { ok: boolean; out: string };
 
 export async function run(cmd: string[], cwd?: string): Promise<RunResult> {
   try {
-    const proc = Bun.spawn(cmd, { cwd, stdout: "pipe", stderr: "pipe", env: childEnv() });
+    const proc = Bun.spawn(cmd, { cwd, stdout: "pipe", stderr: "ignore", env: childEnv() });
     const out = await new Response(proc.stdout).text();
     return { ok: (await proc.exited) === 0, out: out.trim() };
   } catch {

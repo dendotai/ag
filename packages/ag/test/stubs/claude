@@ -1,3 +1,2 @@
 #!/usr/bin/env bash
-# Test stub: records the call and whether CLAUDECODE reached it in STUB_LOG.
 printf 'claude %s CLAUDECODE=%s\n' "$*" "${CLAUDECODE-unset}" >>"$STUB_LOG"
