@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Test stub: records the call in STUB_LOG, answers with STUB_GH_OUT and
+# exits with STUB_GH_EXIT.
+printf 'gh %s\n' "$*" >>"$STUB_LOG"
+printf '%s\n' "${STUB_GH_OUT:-}"
+exit "${STUB_GH_EXIT:-0}"
