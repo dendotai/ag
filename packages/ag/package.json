@@ -1,0 +1,6 @@
+{
+  "name": "@den-ai/ag-cli",
+  "private": true,
+  "type": "module",
+  "description": "The ag command: engine, adapters, and the cli entry the root package's bin points to."
+}
