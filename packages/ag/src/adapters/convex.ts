@@ -9,7 +9,7 @@ import { delimiter, join } from "node:path";
 import type { Adapter } from "../adapter.ts";
 import { CONFIG_FILE } from "../config.ts";
 import { parseEnvFile, upsertEnvFile } from "../env-file.ts";
-import type { AgConfig, ConvexConfig } from "../index.ts";
+import type { AgConfig, ConvexConfig, ConvexExpiration } from "../index.ts";
 
 function convexConfig(config: AgConfig): ConvexConfig {
   const convex = config.convex;
@@ -20,6 +20,10 @@ function convexConfig(config: AgConfig): ConvexConfig {
   }
   return convex;
 }
+
+// A worktree environment is temporary; without an expiration Convex keeps
+// a dev deployment forever.
+export const DEFAULT_EXPIRATION: ConvexExpiration = "in 5 days";
 
 export function convexAdapter(input: { root: string; config: AgConfig }): Adapter {
   const { root, config } = input;
@@ -58,7 +62,6 @@ export function convexAdapter(input: { root: string; config: AgConfig }): Adapte
       console.log(`\n  Deployment: ${selector}`);
       if (convex(["deployment", "select", selector]).status !== 0) {
         console.log("  · not found, creating");
-        const expirationArgs = expiration === undefined ? [] : ["--expiration", String(expiration)];
         convexOrFail([
           "deployment",
           "create",
@@ -66,7 +69,8 @@ export function convexAdapter(input: { root: string; config: AgConfig }): Adapte
           "--type",
           "dev",
           "--select",
-          ...expirationArgs,
+          "--expiration",
+          String(expiration ?? DEFAULT_EXPIRATION),
         ]);
       }
 

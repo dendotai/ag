@@ -36,8 +36,8 @@ export default defineConfig({
     team: "my-team",
     project: "my-project",
     // "none", "in <n> minutes|hours|days", a UTC datetime, or a UNIX timestamp.
-    // Absent: no expiration; the deployment stays until something deletes it
-    // (Convex's behaviour for dev deployments as of CLI 1.45).
+    // Absent: ag passes "in 5 days". A dev deployment created without an
+    // expiration never expires (Convex CLI 1.45), so ag always passes one.
     expiration: "in 14 days",
     // Values a fresh deployment needs before its first push. A value already
     // stored is never touched, so a rerun changes nothing and a value set by

@@ -16,9 +16,9 @@ export interface ConvexConfig {
   team: string;
   project: string;
   /**
-   * Absent: no expiration, the deployment stays until something deletes it.
-   * That is Convex's behaviour for dev deployments as of CLI 1.45; only
-   * preview deployments expire on their own.
+   * Absent: ag passes "in 5 days". ag always passes an expiration, because a
+   * dev deployment created without one never expires (Convex CLI 1.45; only
+   * preview deployments expire on their own).
    */
   expiration?: ConvexExpiration;
   /** Values to store on a fresh deployment before its first push. A value already stored is never touched. */

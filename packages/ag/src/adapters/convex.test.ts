@@ -48,11 +48,10 @@ describe("convex adapter", () => {
       expect(envValue(readEnv(project.root, "notes.env"), "ALSO")).toBe(url);
     }));
 
-  test("a config without expiration, env and files creates plainly, stores nothing, writes nothing", () =>
+  test("a config without expiration, env and files creates with 5 days, stores nothing, writes nothing", () =>
     withProject(async (project) => {
       await convexAdapter({ root: project.root, config: base }).setup(NAME);
-      const [create] = callsNamed(project.calls(), "deployment", "create");
-      expect(create).not.toContain("--expiration");
+      expect(project.deployment().expiration).toBe("in 5 days");
       expect(callsNamed(project.calls(), "env", "set")).toEqual([]);
       expect(project.deployment().vars).toEqual({});
     }));
