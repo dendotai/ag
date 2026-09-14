@@ -15,7 +15,11 @@ export interface ConvexConfig {
   apiDir: string;
   team: string;
   project: string;
-  /** Absent: Convex's default. */
+  /**
+   * Absent: no expiration, the deployment stays until something deletes it.
+   * That is Convex's behaviour for dev deployments as of CLI 1.45; only
+   * preview deployments expire on their own.
+   */
   expiration?: ConvexExpiration;
   /** Values to store on a fresh deployment before its first push. A value already stored is never touched. */
   env?: (tools: { secret: () => string }) => Record<string, string>;
