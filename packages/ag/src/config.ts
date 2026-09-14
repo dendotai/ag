@@ -11,10 +11,6 @@ export const CONFIG_FILE = "ag.config.ts";
 export interface AgConfig {
   adapter: "convex";
   convex?: ConvexConfig;
-  /** Values to store on a fresh environment before its first push. A value already stored is never touched. */
-  env?: (tools: { secret: () => string }) => Record<string, string>;
-  /** Env files to write once the environment exists, keyed by path relative to the project root. */
-  files?: (environment: { url: string }) => Record<string, Record<string, string>>;
 }
 
 export function defineConfig(config: AgConfig): AgConfig {

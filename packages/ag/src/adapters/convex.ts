@@ -8,13 +8,19 @@ import { randomBytes } from "node:crypto";
 import { delimiter, join } from "node:path";
 import type { Adapter } from "../adapter.ts";
 import { type AgConfig, CONFIG_FILE } from "../config.ts";
-import { parseEnvFile, type SetupPlan, upsertEnvFile } from "../worktree.ts";
+import { parseEnvFile, upsertEnvFile } from "../env-file.ts";
 
 export interface ConvexConfig {
   /** The package that depends on `convex`, relative to the project root. */
   apiDir: string;
   team: string;
   project: string;
+  /** Passed to `convex deployment create --expiration` as is, e.g. "in 14 days" or "none". Absent: Convex's default. */
+  expiration?: string;
+  /** Values to store on a fresh deployment before its first push. A value already stored is never touched. */
+  env?: (tools: { secret: () => string }) => Record<string, string>;
+  /** Env files to write once the deployment exists, keyed by path relative to the project root. */
+  files?: (deployment: { url: string }) => Record<string, Record<string, string>>;
 }
 
 function convexConfig(config: AgConfig): ConvexConfig {
@@ -31,8 +37,15 @@ export function convexAdapter(input: { root: string; config: AgConfig }): Adapte
   const { root, config } = input;
 
   return {
-    async setup(plan: SetupPlan): Promise<void> {
-      const { team, project, apiDir: apiDirRelative } = convexConfig(config);
+    async setup(name: string): Promise<void> {
+      const {
+        team,
+        project,
+        apiDir: apiDirRelative,
+        expiration,
+        env,
+        files,
+      } = convexConfig(config);
       const apiDir = join(root, apiDirRelative);
       const binDirs = [join(root, "node_modules/.bin"), join(apiDir, "node_modules/.bin")];
 
@@ -53,11 +66,11 @@ export function convexAdapter(input: { root: string; config: AgConfig }): Adapte
         return result;
       }
 
-      const selector = `${team}:${project}:dev/agent/${plan.name}`;
+      const selector = `${team}:${project}:dev/agent/${name}`;
       console.log(`\n  Deployment: ${selector}`);
       if (convex(["deployment", "select", selector]).status !== 0) {
         console.log("  · not found, creating");
-        const expiration = plan.expires === null ? "none" : `in ${plan.expires} days`;
+        const expirationArgs = expiration === undefined ? [] : ["--expiration", expiration];
         convexOrFail([
           "deployment",
           "create",
@@ -65,8 +78,7 @@ export function convexAdapter(input: { root: string; config: AgConfig }): Adapte
           "--type",
           "dev",
           "--select",
-          "--expiration",
-          expiration,
+          ...expirationArgs,
         ]);
       }
 
@@ -80,7 +92,7 @@ export function convexAdapter(input: { root: string; config: AgConfig }): Adapte
           .map((line) => line.trim())
           .filter(Boolean),
       );
-      const wanted = config.env?.({ secret: () => randomBytes(32).toString("base64") }) ?? {};
+      const wanted = env?.({ secret: () => randomBytes(32).toString("base64") }) ?? {};
       for (const [key, value] of Object.entries(wanted)) {
         if (present.has(key)) continue;
         console.log(`  · setting ${key}`);
@@ -89,7 +101,7 @@ export function convexAdapter(input: { root: string; config: AgConfig }): Adapte
 
       convexOrFail(["dev", "--once"]);
 
-      for (const [path, values] of Object.entries(config.files?.({ url }) ?? {})) {
+      for (const [path, values] of Object.entries(files?.({ url }) ?? {})) {
         upsertEnvFile(join(root, path), values);
       }
       console.log(`  ✓ ${selector} is selected, pushed, and in the env files\n`);

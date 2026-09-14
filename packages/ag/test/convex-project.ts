@@ -17,12 +17,17 @@ import { dirname, join } from "node:path";
 
 export const CONFIG = `export default {
   adapter: "convex",
-  convex: { apiDir: "packages/api", team: "acme", project: "acme-com" },
-  env: ({ secret }) => ({ APP_SECRET: secret(), MODE: "dev" }),
-  files: ({ url }) => ({
-    "apps/web/.env.local": { VITE_BACKEND_URL: url },
-    "apps/web/.dev.vars": { BACKEND_URL: url },
-  }),
+  convex: {
+    apiDir: "packages/api",
+    team: "acme",
+    project: "acme-com",
+    expiration: "in 14 days",
+    env: ({ secret }) => ({ APP_SECRET: secret(), MODE: "dev" }),
+    files: ({ url }) => ({
+      "apps/web/.env.local": { VITE_BACKEND_URL: url },
+      "apps/web/.dev.vars": { BACKEND_URL: url },
+    }),
+  },
 };
 `;
 

@@ -162,20 +162,10 @@ describe("ag worktree setup in the main checkout", () => {
   });
 });
 
-describe("ag worktree setup flags and failures", () => {
-  test("--expires never creates with no expiration", () => {
+describe("ag worktree setup failures", () => {
+  test("rejects any argument before any convex call", () => {
     withRepo((repo) => {
       const wt = repo.addWorktree("impl-87");
-      expect(setup(wt, "--expires", "never").status).toBe(0);
-      expect(repo.deployment().expiration).toBe("none");
-    });
-  });
-
-  test("rejects a bad flag before any convex call", () => {
-    withRepo((repo) => {
-      const wt = repo.addWorktree("impl-87");
-      expect(setup(wt, "--expires", "soon").status).toBe(2);
-      expect(setup(wt, "--name", "x").status).toBe(2);
       expect(setup(wt, "--port", "3001").status).toBe(2);
       expect(repo.calls()).toEqual([]);
     });
