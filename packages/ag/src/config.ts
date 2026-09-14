@@ -4,18 +4,9 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import type { ConvexConfig } from "./adapters/convex.ts";
+import type { AgConfig } from "./index.ts";
 
 export const CONFIG_FILE = "ag.config.ts";
-
-export interface AgConfig {
-  adapter: "convex";
-  convex?: ConvexConfig;
-}
-
-export function defineConfig(config: AgConfig): AgConfig {
-  return config;
-}
 
 export async function loadConfig(root: string): Promise<AgConfig> {
   const path = join(root, CONFIG_FILE);

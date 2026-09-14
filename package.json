@@ -15,7 +15,7 @@
     "ag": "packages/ag/src/cli.ts"
   },
   "exports": {
-    ".": "./packages/ag/src/config.ts"
+    ".": "./packages/ag/src/index.ts"
   },
   "workspaces": [
     "packages/*"

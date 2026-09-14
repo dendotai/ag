@@ -7,21 +7,9 @@ import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { delimiter, join } from "node:path";
 import type { Adapter } from "../adapter.ts";
-import { type AgConfig, CONFIG_FILE } from "../config.ts";
+import { CONFIG_FILE } from "../config.ts";
 import { parseEnvFile, upsertEnvFile } from "../env-file.ts";
-
-export interface ConvexConfig {
-  /** The package that depends on `convex`, relative to the project root. */
-  apiDir: string;
-  team: string;
-  project: string;
-  /** Passed to `convex deployment create --expiration` as is, e.g. "in 14 days" or "none". Absent: Convex's default. */
-  expiration?: string;
-  /** Values to store on a fresh deployment before its first push. A value already stored is never touched. */
-  env?: (tools: { secret: () => string }) => Record<string, string>;
-  /** Env files to write once the deployment exists, keyed by path relative to the project root. */
-  files?: (deployment: { url: string }) => Record<string, Record<string, string>>;
-}
+import type { AgConfig, ConvexConfig } from "../index.ts";
 
 function convexConfig(config: AgConfig): ConvexConfig {
   const convex = config.convex;

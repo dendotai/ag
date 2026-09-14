@@ -3,7 +3,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { callsNamed, envValue, readEnv, withProject } from "../../test/convex-project.ts";
-import type { AgConfig } from "../config.ts";
+import type { AgConfig } from "../index.ts";
 import { convexAdapter } from "./convex.ts";
 
 const convex = { apiDir: "packages/api", team: "acme", project: "acme-com" };

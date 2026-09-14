@@ -2,7 +2,7 @@
 // environment; the adapter makes it exist and knows nothing about worktrees.
 
 import { convexAdapter } from "./adapters/convex.ts";
-import type { AgConfig } from "./config.ts";
+import type { AgConfig } from "./index.ts";
 
 export interface Adapter {
   /** Creates or reuses the environment of that name and writes the project's env files. */
