@@ -1,15 +1,13 @@
 // The worktree engine: is this checkout a git worktree, what is its name,
-// which port and lifetime does its environment get. Knows no stack.
+// how long does its environment live. Knows no stack.
 
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { createServer } from "node:net";
-import { basename, join, resolve } from "node:path";
+import { basename, resolve } from "node:path";
 
 export type EnvValues = Record<string, string>;
 
-export type GitResult = { status: number | null; stdout: string };
-export type Git = (args: string[]) => GitResult;
+export type Git = (args: string[]) => { status: number | null; stdout: string };
 
 export function gitIn(cwd: string): Git {
   return (args) => {
@@ -27,54 +25,12 @@ export function isWorktree(root: string, git: Git): boolean {
   return resolve(root, gitDir.stdout.trim()) !== resolve(root, commonDir.stdout.trim());
 }
 
-// Ports the sibling worktrees wrote into their own port file; a server there
-// need not be running for the port to be taken.
-export function heldPorts(root: string, git: Git, portFile: string): Set<number> {
-  const held = new Set<number>();
-  const list = git(["worktree", "list", "--porcelain"]);
-  if (list.status !== 0) return held;
-  for (const line of list.stdout.split("\n")) {
-    if (!line.startsWith("worktree ")) continue;
-    const dir = line.slice("worktree ".length);
-    if (resolve(dir) === resolve(root)) continue;
-    const port = Number(parseEnvFile(join(dir, portFile)).PORT);
-    if (Number.isInteger(port)) held.add(port);
-  }
-  return held;
-}
-
-// 3000 belongs to the main checkout's dev server, so worktrees start above it.
-export const MAIN_PORT = 3000;
-export const PORT_BAND = { first: 3001, last: 3099 };
-
-export function isPortFree(port: number): Promise<boolean> {
-  return new Promise((done) => {
-    const server = createServer();
-    server.once("error", () => done(false));
-    server.listen(port, "127.0.0.1", () => server.close(() => done(true)));
-  });
-}
-
-export async function pickPort(
-  current: number | undefined,
-  held: Set<number>,
-  isFree: (port: number) => Promise<boolean> = isPortFree,
-): Promise<number> {
-  if (current !== undefined && current >= PORT_BAND.first && current <= PORT_BAND.last) {
-    return current;
-  }
-  for (let port = PORT_BAND.first; port <= PORT_BAND.last; port++) {
-    if (!held.has(port) && (await isFree(port))) return port;
-  }
-  throw new Error(`no free port between ${PORT_BAND.first} and ${PORT_BAND.last}`);
-}
-
 export function parseEnvFile(path: string): EnvValues {
   if (!existsSync(path)) return {};
   const out: EnvValues = {};
   for (const line of readFileSync(path, "utf8").split("\n")) {
     const match = line.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
-    if (match) out[match[1] as string] = (match[2] as string).replace(/\s+#.*$/, "").trim();
+    if (match) out[match[1] as string] = match[2] as string;
   }
   return out;
 }
@@ -95,43 +51,33 @@ export function upsertEnvFile(path: string, entries: EnvValues): void {
 export const DEFAULT_LIFETIME_DAYS = 14;
 
 export interface SetupOverrides {
-  /** Forces the worktree form with this environment name. */
+  /** Forces the worktree form with this environment name, in any checkout. */
   name?: string;
-  port?: number;
   /** Lifetime in days; null means no expiration. */
   expires?: number | null;
 }
 
 export interface SetupPlan {
-  /** Environment name; null means the developer's own environment. */
-  name: string | null;
-  port: number;
+  name: string;
   /** Lifetime in days; null means no expiration. */
   expires: number | null;
 }
 
-export async function planSetup(input: {
+export function planSetup(input: {
   root: string;
   git: Git;
-  /** Path, relative to a checkout, of the env file that records its PORT. */
-  portFile: string;
   overrides?: SetupOverrides;
-  isFree?: (port: number) => Promise<boolean>;
-}): Promise<SetupPlan> {
-  const { root, git, portFile, overrides = {}, isFree } = input;
-  const name = overrides.name ?? (isWorktree(root, git) ? basename(root) : null);
-  const isolated = name !== null;
-  let port = overrides.port;
-  if (port === undefined) {
-    port = isolated
-      ? await pickPort(
-          Number(parseEnvFile(join(root, portFile)).PORT) || undefined,
-          heldPorts(root, git, portFile),
-          isFree,
-        )
-      : MAIN_PORT;
+}): SetupPlan {
+  const { root, git, overrides = {} } = input;
+  const name = overrides.name ?? (isWorktree(root, git) ? basename(root) : undefined);
+  if (name === undefined) {
+    throw new Error(
+      "not a git worktree. The main checkout is set up by hand; " +
+        "pass --name to give this checkout a worktree environment anyway.",
+    );
   }
-  const expires =
-    overrides.expires === undefined ? (isolated ? DEFAULT_LIFETIME_DAYS : null) : overrides.expires;
-  return { name, port, expires };
+  return {
+    name,
+    expires: overrides.expires === undefined ? DEFAULT_LIFETIME_DAYS : overrides.expires,
+  };
 }

@@ -1,87 +1,66 @@
 #!/usr/bin/env bun
 import { pickAdapter } from "./adapter.ts";
+import { loadConfig } from "./config.ts";
 import { gitIn, planSetup, type SetupOverrides } from "./worktree.ts";
 
 const USAGE = `usage: ag <command>
 
-  setup [--name <name>] [--port <port>] [--expires <days>|never]
-      give this checkout its own environment and env files`;
+  worktree setup [--name <name>] [--expires <days>|never]
+      give this worktree its own environment and env files`;
 
 class UsageError extends Error {}
 
-function parseFlags(argv: string[]): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (let i = 0; i < argv.length; i++) {
+type Flags = Record<string, string>;
+
+function parseFlags(argv: string[]): Flags {
+  const out: Flags = {};
+  for (let i = 0; i < argv.length; i += 2) {
     const arg = argv[i] as string;
+    const value = argv[i + 1];
     if (!arg.startsWith("--")) throw new UsageError(`unexpected argument: ${arg}`);
-    const body = arg.slice(2);
-    const eq = body.indexOf("=");
-    if (eq !== -1) {
-      out[body.slice(0, eq)] = body.slice(eq + 1);
-    } else {
-      const value = argv[i + 1];
-      if (value === undefined || value.startsWith("--"))
-        throw new UsageError(`--${body} needs a value`);
-      out[body] = value;
-      i++;
-    }
+    if (value === undefined || value.startsWith("--")) throw new UsageError(`${arg} needs a value`);
+    out[arg.slice(2)] = value;
   }
   return out;
 }
 
-type SetupFlags = { name?: string; port?: string; expires?: string };
-
-function setupOverrides(flags: SetupFlags): SetupOverrides {
+function setupOverrides(flags: Flags): SetupOverrides {
   const overrides: SetupOverrides = {};
-  for (const key of Object.keys(flags)) {
-    if (!["name", "port", "expires"].includes(key)) throw new UsageError(`unknown flag: --${key}`);
-  }
-  if (flags.name !== undefined) {
-    if (flags.name === "") throw new UsageError("--name must not be empty");
-    overrides.name = flags.name;
-  }
-  if (flags.port !== undefined) {
-    const port = Number(flags.port);
-    if (!Number.isInteger(port) || port <= 0)
-      throw new UsageError(`--port must be a number: ${flags.port}`);
-    overrides.port = port;
-  }
-  if (flags.expires !== undefined) {
-    if (flags.expires === "never") {
-      overrides.expires = null;
+  for (const [key, value] of Object.entries(flags)) {
+    if (key === "name") {
+      if (value === "") throw new UsageError("--name must not be empty");
+      overrides.name = value;
+    } else if (key === "expires") {
+      const days = Number(value);
+      if (value === "never") overrides.expires = null;
+      else if (Number.isInteger(days) && days > 0) overrides.expires = days;
+      else throw new UsageError(`--expires must be a number of days or "never": ${value}`);
     } else {
-      const days = Number(flags.expires);
-      if (!Number.isInteger(days) || days <= 0) {
-        throw new UsageError(`--expires must be a number of days or "never": ${flags.expires}`);
-      }
-      overrides.expires = days;
+      throw new UsageError(`unknown flag: --${key}`);
     }
   }
   return overrides;
 }
 
-async function setup(argv: string[]): Promise<void> {
+async function worktreeSetup(argv: string[]): Promise<void> {
   const overrides = setupOverrides(parseFlags(argv));
   const root = process.cwd();
-  const adapter = pickAdapter(root);
-  const plan = await planSetup({ root, git: gitIn(root), portFile: adapter.portFile, overrides });
-  const values = await adapter.provision(plan);
-  adapter.writeEnv(values);
-  console.log(
-    `  ✓ env files written${plan.name === null ? "" : `, app on http://localhost:${plan.port}`}\n`,
-  );
+  const config = await loadConfig(root);
+  const plan = planSetup({ root, git: gitIn(root), overrides });
+  await pickAdapter(root, config).setup(plan);
 }
 
 async function main(argv: string[]): Promise<void> {
-  const [command, ...rest] = argv;
-  if (command === "setup") return setup(rest);
+  const [group, command, ...rest] = argv;
+  if (group === "worktree" && command === "setup") return worktreeSetup(rest);
   throw new UsageError(USAGE);
 }
 
 try {
   await main(process.argv.slice(2));
 } catch (error) {
-  const message = error instanceof Error ? error.message : String(error);
-  console.error(`\n\x1b[1;31m${message.replace(/^/gm, "  ")}\x1b[0m\n`);
+  console.error(
+    `\n${(error instanceof Error ? error.message : String(error)).replace(/^/gm, "  ")}\n`,
+  );
   process.exit(error instanceof UsageError ? 2 : 1);
 }

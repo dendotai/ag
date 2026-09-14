@@ -1,9 +1,10 @@
-// End-to-end: `ag setup` in a real git repository with worktrees, against the
-// fake convex. Asserts the commands issued, the files written, and idempotence.
+// End-to-end: `ag worktree setup` in a real git repository with worktrees,
+// against the fake convex. Asserts the commands issued, the files written,
+// and idempotence.
 
 import { describe, expect, test } from "bun:test";
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -11,7 +12,6 @@ import {
   envValue,
   makeProject,
   type Project,
-  REQUIRED_VARS,
   readEnv,
 } from "../test/convex-project.ts";
 
@@ -54,23 +54,21 @@ function withRepo(fn: (repo: Repo) => void) {
   }
 }
 
-function setup(cwd: string, ...flags: string[]) {
-  const result = spawnSync(process.execPath, [CLI, "setup", ...flags], {
-    cwd,
-    env,
-    encoding: "utf8",
-  });
+function run(cwd: string, ...args: string[]) {
+  const result = spawnSync(process.execPath, [CLI, ...args], { cwd, env, encoding: "utf8" });
   return { status: result.status, stdout: result.stdout, stderr: result.stderr };
 }
+const setup = (cwd: string, ...flags: string[]) => run(cwd, "worktree", "setup", ...flags);
 
 const ENV_FILES = ["apps/web/.dev.vars", "apps/web/.env.local", "packages/api/.env.local"];
 
-describe("ag setup in a worktree", () => {
-  test("creates an expiring environment, pushes once, writes both env files", () => {
+describe("ag worktree setup in a worktree", () => {
+  test("creates an expiring deployment, stores the declared values, pushes once, writes the files", () => {
     withRepo((repo) => {
       const wt = repo.addWorktree("impl-87");
 
       expect(setup(wt).status).toBe(0);
+
       const calls = repo.calls();
       expect(callsNamed(calls, "deployment", "create")).toEqual([
         [
@@ -84,20 +82,20 @@ describe("ag setup in a worktree", () => {
           "in 14 days",
         ],
       ]);
+      expect(
+        callsNamed(calls, "env", "set")
+          .map((args) => args[2])
+          .sort(),
+      ).toEqual(["APP_SECRET", "MODE"]);
       expect(callsNamed(calls, "dev", "--once")).toHaveLength(1);
-      const deployment = repo.deployment();
-      expect(Object.keys(deployment.vars).sort()).toEqual([...REQUIRED_VARS].sort());
+      // The push comes after every value is stored, and the files come after the push.
+      expect(calls.at(-1)).toEqual(["dev", "--once"]);
 
-      const envLocal = readEnv(wt, "apps/web/.env.local");
-      const port = Number(envValue(envLocal, "PORT"));
-      expect(port).toBeGreaterThanOrEqual(3001);
-      expect(port).toBeLessThanOrEqual(3099);
-      expect(deployment.vars.SITE_URL).toBe(`http://localhost:${port}`);
-      const url = `https://${deployment.name}.convex.cloud`;
-      expect(envValue(envLocal, "VITE_CONVEX_URL")).toBe(url);
-      expect(envValue(readEnv(wt, "apps/web/.dev.vars"), "CONVEX_URL")).toBe(url);
+      const url = `https://${repo.deployment().name}.convex.cloud`;
+      expect(envValue(readEnv(wt, "apps/web/.env.local"), "VITE_BACKEND_URL")).toBe(url);
+      expect(envValue(readEnv(wt, "apps/web/.dev.vars"), "BACKEND_URL")).toBe(url);
       expect(envValue(readEnv(wt, "packages/api/.env.local"), "CONVEX_DEPLOYMENT")).toContain(
-        `dev:${deployment.name}`,
+        `dev:${repo.deployment().name}`,
       );
       expect(existsSync(join(repo.root, "apps/web/.dev.vars"))).toBe(false);
     });
@@ -108,7 +106,7 @@ describe("ag setup in a worktree", () => {
       const wt = repo.addWorktree("impl-87");
       expect(setup(wt).status).toBe(0);
       const before = ENV_FILES.map((path) => readEnv(wt, path));
-      const secret = repo.deployments()[0]?.vars.BETTER_AUTH_SECRET;
+      const secret = repo.deployment().vars.APP_SECRET;
       repo.clearCalls();
 
       expect(setup(wt).status).toBe(0);
@@ -119,124 +117,75 @@ describe("ag setup in a worktree", () => {
       ]);
       expect(callsNamed(calls, "deployment", "create")).toEqual([]);
       expect(callsNamed(calls, "env", "set")).toEqual([]);
-      expect(repo.deployments()).toHaveLength(1);
-      expect(repo.deployments()[0]?.vars.BETTER_AUTH_SECRET).toBe(secret);
+      expect(repo.deployment().vars.APP_SECRET).toBe(secret);
       expect(ENV_FILES.map((path) => readEnv(wt, path))).toEqual(before);
     });
   });
 
-  test("after the environment expired, a rerun creates a new one and keeps the port", () => {
+  test("after the deployment expired, a rerun creates a new one and rewrites the files", () => {
     withRepo((repo) => {
       const wt = repo.addWorktree("impl-87");
       expect(setup(wt).status).toBe(0);
-      const port = envValue(readEnv(wt, "apps/web/.env.local"), "PORT");
-      const oldUrl = envValue(readEnv(wt, "apps/web/.dev.vars"), "CONVEX_URL");
+      const oldUrl = envValue(readEnv(wt, "apps/web/.dev.vars"), "BACKEND_URL");
       repo.expire("dev/agent/impl-87");
       repo.clearCalls();
 
       expect(setup(wt).status).toBe(0);
 
       expect(callsNamed(repo.calls(), "deployment", "create")).toHaveLength(1);
-      const deployment = repo.deployment();
-      const envLocal = readEnv(wt, "apps/web/.env.local");
-      const url = `https://${deployment.name}.convex.cloud`;
+      const url = `https://${repo.deployment().name}.convex.cloud`;
       expect(url).not.toBe(oldUrl);
-      expect(envValue(readEnv(wt, "apps/web/.dev.vars"), "CONVEX_URL")).toBe(url);
-      expect(envValue(envLocal, "VITE_CONVEX_URL")).toBe(url);
-      expect(envValue(envLocal, "PORT")).toBe(port);
+      expect(envValue(readEnv(wt, "apps/web/.dev.vars"), "BACKEND_URL")).toBe(url);
+      expect(envValue(readEnv(wt, "apps/web/.env.local"), "VITE_BACKEND_URL")).toBe(url);
     });
   });
 
-  test("never hands out a port a sibling worktree holds", () => {
+  test("the folder name goes to convex as is; convex's own error is the guard", () => {
     withRepo((repo) => {
-      const first = repo.addWorktree("impl-1");
-      mkdirSync(join(first, "apps/web"), { recursive: true });
-      writeFileSync(join(first, "apps/web/.env.local"), "PORT=3001\n");
-      const second = repo.addWorktree("impl-2");
-
-      expect(setup(second).status).toBe(0);
-
-      const port = Number(envValue(readEnv(second, "apps/web/.env.local"), "PORT"));
-      expect(port).toBeGreaterThan(3001);
-      expect(port).toBeLessThanOrEqual(3099);
+      const wt = repo.addWorktree("Review_v2");
+      const { status, stderr } = setup(wt);
+      expect(status).toBe(1);
+      expect(stderr).toContain("invalid reference dev/agent/Review_v2");
+      expect(repo.deployments()).toEqual([]);
     });
   });
 });
 
-describe("ag setup in the main checkout", () => {
-  test("provisions the developer's own environment with no expiration and no PORT", () => {
+describe("ag worktree setup in the main checkout", () => {
+  test("refuses without --name, before any convex call", () => {
     withRepo((repo) => {
-      writeFileSync(
-        join(repo.root, "apps/web/.dev.vars"),
-        "CONVEX_URL=https://your-dev-deployment.convex.cloud\nCLOUDFLARE_API_TOKEN=keep-me\n",
-      );
-
-      expect(setup(repo.root).status).toBe(0);
-
-      const [create] = callsNamed(repo.calls(), "deployment", "create");
-      expect(create).toContain("--default");
-      expect(create).not.toContain("--expiration");
-      const deployment = repo.deployment();
-      expect(deployment.vars.SITE_URL).toBe("http://localhost:3000");
-      expect(envValue(readEnv(repo.root, "apps/web/.env.local"), "PORT")).toBeUndefined();
-      const devVars = readEnv(repo.root, "apps/web/.dev.vars");
-      expect(envValue(devVars, "CONVEX_URL")).toBe(`https://${deployment.name}.convex.cloud`);
-      expect(envValue(devVars, "CLOUDFLARE_API_TOKEN")).toBe("keep-me");
-    });
-  });
-});
-
-describe("ag setup flags", () => {
-  test("--name forces the worktree form; --port and --expires override the engine", () => {
-    withRepo((repo) => {
-      expect(
-        setup(repo.root, "--name", "review-1", "--port", "4123", "--expires", "3").status,
-      ).toBe(0);
-      expect(callsNamed(repo.calls(), "deployment", "create")).toEqual([
-        [
-          "deployment",
-          "create",
-          "acme:acme-com:dev/agent/review-1",
-          "--type",
-          "dev",
-          "--select",
-          "--expiration",
-          "in 3 days",
-        ],
-      ]);
-      expect(repo.deployments()[0]?.vars.SITE_URL).toBe("http://localhost:4123");
-      expect(envValue(readEnv(repo.root, "apps/web/.env.local"), "PORT")).toBe("4123");
-    });
-  });
-
-  test("--expires never creates a worktree environment with no expiration", () => {
-    withRepo((repo) => {
-      const wt = repo.addWorktree("impl-87");
-      expect(setup(wt, "--expires", "never").status).toBe(0);
-      expect(callsNamed(repo.calls(), "deployment", "create")[0]).toContain("none");
-    });
-  });
-
-  test("rejects a bad --expires, --port or --name before any convex call", () => {
-    withRepo((repo) => {
-      expect(setup(repo.root, "--expires", "soon").status).toBe(2);
-      expect(setup(repo.root, "--port", "abc").status).toBe(2);
-      expect(setup(repo.root, "--name", "").status).toBe(2);
+      const { status, stderr } = setup(repo.root);
+      expect(status).toBe(1);
+      expect(stderr).toContain("not a git worktree");
       expect(repo.calls()).toEqual([]);
     });
   });
+
+  test("--name gives the main checkout a worktree environment of that name", () => {
+    withRepo((repo) => {
+      expect(setup(repo.root, "--name", "review-1", "--expires", "3").status).toBe(0);
+      const [create] = callsNamed(repo.calls(), "deployment", "create");
+      expect(create?.[2]).toBe("acme:acme-com:dev/agent/review-1");
+      expect(create).toContain("in 3 days");
+    });
+  });
 });
 
-describe("ag setup refuses to guess", () => {
-  test("fails before any convex call while the slugs are the template placeholders", () => {
+describe("ag worktree setup flags and failures", () => {
+  test("--expires never creates with no expiration", () => {
     withRepo((repo) => {
-      writeFileSync(
-        join(repo.apiDir, "package.json"),
-        '{\n  "name": "@acme/api",\n  "convex": { "team": "your-convex-team", "project": "your-convex-project" }\n}\n',
-      );
-      const { status, stderr } = setup(repo.root);
-      expect(status).toBe(1);
-      expect(stderr).toContain("packages/api/package.json");
+      const wt = repo.addWorktree("impl-87");
+      expect(setup(wt, "--expires", "never").status).toBe(0);
+      expect(repo.deployment().expiration).toBe("none");
+    });
+  });
+
+  test("rejects a bad flag before any convex call", () => {
+    withRepo((repo) => {
+      const wt = repo.addWorktree("impl-87");
+      expect(setup(wt, "--expires", "soon").status).toBe(2);
+      expect(setup(wt, "--name", "").status).toBe(2);
+      expect(setup(wt, "--port", "3001").status).toBe(2);
       expect(repo.calls()).toEqual([]);
     });
   });
@@ -248,17 +197,22 @@ describe("ag setup refuses to guess", () => {
       expect(setup(wt).status).toBe(1);
       expect(callsNamed(repo.calls(), "dev", "--once")).toEqual([]);
       expect(existsSync(join(wt, "apps/web/.dev.vars"))).toBe(false);
-      expect(existsSync(join(wt, "apps/web/.env.local"))).toBe(false);
+    });
+  });
+
+  test("names ag.config.ts when it is missing", () => {
+    withRepo((repo) => {
+      const wt = repo.addWorktree("impl-87");
+      rmSync(join(wt, "ag.config.ts"));
+      const { status, stderr } = setup(wt);
+      expect(status).toBe(1);
+      expect(stderr).toContain("ag.config.ts");
     });
   });
 
   test("prints usage for an unknown command", () => {
     withRepo((repo) => {
-      const result = spawnSync(process.execPath, [CLI, "frobnicate"], {
-        cwd: repo.root,
-        env,
-        encoding: "utf8",
-      });
+      const result = run(repo.root, "frobnicate");
       expect(result.status).toBe(2);
       expect(result.stderr).toContain("usage");
     });

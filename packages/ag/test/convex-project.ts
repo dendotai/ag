@@ -1,7 +1,7 @@
-// A throwaway project with a fake `convex` in its node_modules/.bin. The fake
-// keeps its deployments in a JSON file and writes the same `.env.local` lines
-// the real CLI writes on select. Every call is appended to calls.jsonl, so a
-// test asserts the commands issued and nothing else.
+// A throwaway project with an `ag.config.ts` and a fake `convex` in its
+// node_modules/.bin. The fake keeps its deployments in a JSON file and writes
+// the same `.env.local` lines the real CLI writes on select. Every call is
+// appended to calls.jsonl, so a test asserts the commands issued and nothing else.
 
 import {
   chmodSync,
@@ -15,13 +15,16 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 
-export const SLUGS = { team: "acme", project: "acme-com" };
-export const REQUIRED_VARS = [
-  "BETTER_AUTH_SECRET",
-  "SITE_URL",
-  "GOOGLE_CLIENT_ID",
-  "GOOGLE_CLIENT_SECRET",
-];
+export const CONFIG = `export default {
+  adapter: "convex",
+  convex: { apiDir: "packages/api", team: "acme", project: "acme-com" },
+  env: ({ secret }) => ({ APP_SECRET: secret(), MODE: "dev" }),
+  files: ({ url }) => ({
+    "apps/web/.env.local": { VITE_BACKEND_URL: url },
+    "apps/web/.dev.vars": { BACKEND_URL: url },
+  }),
+};
+`;
 
 const FAKE_CONVEX = `
 import { existsSync, appendFileSync, readFileSync, writeFileSync } from "node:fs";
@@ -38,10 +41,10 @@ const fail = (message) => { console.error(message); process.exit(1); };
 const parseSelector = (selector) => {
   const [team, project, ref] = selector.split(":");
   if (ref === undefined) fail("fake convex: selectors must be team:project:ref");
+  if (!/^[a-z0-9/-]+$/.test(ref)) fail("fake convex: invalid reference " + ref);
   return { team, project, ref };
 };
-const find = ({ ref }) =>
-  Object.values(state.deployments).find((d) => (ref === "dev" ? d.isDefault : d.ref === ref));
+const find = ({ ref }) => Object.values(state.deployments).find((d) => d.ref === ref);
 const select = (d) =>
   writeFileSync(
     ".env.local",
@@ -70,7 +73,7 @@ if (command === "deployment" && sub === "select") {
   if (find(target)) fail("fake convex: " + target.ref + " already exists");
   const name = "fake-" + target.ref.replace(/[^a-z0-9]+/g, "-") + "-" + state.next++;
   const expiration = rest.includes("--expiration") ? rest[rest.indexOf("--expiration") + 1] : null;
-  const d = { ...target, name, isDefault: rest.includes("--default"), expiration, vars: {} };
+  const d = { ...target, name, expiration, vars: {} };
   state.deployments[name] = d;
   save();
   if (rest.includes("--select")) select(d);
@@ -81,25 +84,23 @@ if (command === "deployment" && sub === "select") {
   d.vars[rest[0]] = rest[1];
   save();
 } else if (command === "dev" && sub === "--once") {
-  const missing = ${JSON.stringify(REQUIRED_VARS)}.filter((n) => !(n in selected().vars));
-  if (missing.length > 0) fail(missing[0] + " is not set on this Convex deployment");
+  selected();
 } else {
   fail("fake convex: unexpected command " + args.join(" "));
 }
 `;
 
 const FILES: Record<string, string> = {
-  "package.json": '{\n  "name": "acme-com",\n  "workspaces": ["apps/*", "packages/*"]\n}\n',
-  "packages/api/package.json": `{\n  "name": "@acme/api",\n  "convex": ${JSON.stringify(SLUGS)}\n}\n`,
-  "packages/api/convex/schema.ts": "export default {};\n",
-  "apps/web/package.json": '{\n  "name": "@acme/web"\n}\n',
+  "package.json": '{ "name": "acme-com", "workspaces": ["apps/*", "packages/*"] }\n',
+  "packages/api/package.json": '{ "name": "@acme/api" }\n',
+  "apps/web/package.json": '{ "name": "@acme/web" }\n',
+  "ag.config.ts": CONFIG,
   ".gitignore": ".env.local\n.dev.vars\nnode_modules\n",
 };
 
 export interface Deployment {
   ref: string;
   name: string;
-  isDefault: boolean;
   expiration: string | null;
   vars: Record<string, string>;
 }
@@ -108,7 +109,6 @@ export interface Project {
   /** Holds the project root, the fake's state, and any worktrees a test adds. */
   dir: string;
   root: string;
-  apiDir: string;
   calls(): string[][];
   clearCalls(): void;
   deployments(): Deployment[];
@@ -144,7 +144,6 @@ export function makeProject(): Project {
   return {
     dir,
     root,
-    apiDir: join(root, "packages/api"),
     calls() {
       const path = join(state, "calls.jsonl");
       if (!existsSync(path)) return [];
