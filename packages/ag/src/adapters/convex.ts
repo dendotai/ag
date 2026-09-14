@@ -58,7 +58,7 @@ export function convexAdapter(input: { root: string; config: AgConfig }): Adapte
       console.log(`\n  Deployment: ${selector}`);
       if (convex(["deployment", "select", selector]).status !== 0) {
         console.log("  · not found, creating");
-        const expirationArgs = expiration === undefined ? [] : ["--expiration", expiration];
+        const expirationArgs = expiration === undefined ? [] : ["--expiration", String(expiration)];
         convexOrFail([
           "deployment",
           "create",
