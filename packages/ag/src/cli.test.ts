@@ -152,21 +152,12 @@ describe("ag worktree setup in a worktree", () => {
 });
 
 describe("ag worktree setup in the main checkout", () => {
-  test("refuses without --name, before any convex call", () => {
+  test("refuses, before any convex call", () => {
     withRepo((repo) => {
       const { status, stderr } = setup(repo.root);
       expect(status).toBe(1);
       expect(stderr).toContain("not a git worktree");
       expect(repo.calls()).toEqual([]);
-    });
-  });
-
-  test("--name gives the main checkout a worktree environment of that name", () => {
-    withRepo((repo) => {
-      expect(setup(repo.root, "--name", "review-1", "--expires", "3").status).toBe(0);
-      const [create] = callsNamed(repo.calls(), "deployment", "create");
-      expect(create?.[2]).toBe("acme:acme-com:dev/agent/review-1");
-      expect(create).toContain("in 3 days");
     });
   });
 });
@@ -184,7 +175,7 @@ describe("ag worktree setup flags and failures", () => {
     withRepo((repo) => {
       const wt = repo.addWorktree("impl-87");
       expect(setup(wt, "--expires", "soon").status).toBe(2);
-      expect(setup(wt, "--name", "").status).toBe(2);
+      expect(setup(wt, "--name", "x").status).toBe(2);
       expect(setup(wt, "--port", "3001").status).toBe(2);
       expect(repo.calls()).toEqual([]);
     });

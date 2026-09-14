@@ -51,8 +51,6 @@ export function upsertEnvFile(path: string, entries: EnvValues): void {
 export const DEFAULT_LIFETIME_DAYS = 14;
 
 export interface SetupOverrides {
-  /** Forces the worktree form with this environment name, in any checkout. */
-  name?: string;
   /** Lifetime in days; null means no expiration. */
   expires?: number | null;
 }
@@ -69,15 +67,11 @@ export function planSetup(input: {
   overrides?: SetupOverrides;
 }): SetupPlan {
   const { root, git, overrides = {} } = input;
-  const name = overrides.name ?? (isWorktree(root, git) ? basename(root) : undefined);
-  if (name === undefined) {
-    throw new Error(
-      "not a git worktree. The main checkout is set up by hand; " +
-        "pass --name to give this checkout a worktree environment anyway.",
-    );
+  if (!isWorktree(root, git)) {
+    throw new Error("not a git worktree. The main checkout is set up by hand.");
   }
   return {
-    name,
+    name: basename(root),
     expires: overrides.expires === undefined ? DEFAULT_LIFETIME_DAYS : overrides.expires,
   };
 }

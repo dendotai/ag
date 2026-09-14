@@ -46,7 +46,7 @@ export default defineConfig({
 ## `ag worktree setup`
 
 ```
-ag worktree setup [--name <name>] [--expires <days>|never]
+ag worktree setup [--expires <days>|never]
 ```
 
 Gives the git worktree it runs in an isolated environment of its own, and
@@ -55,9 +55,8 @@ environment that exists and replaces one that is gone.
 
 The **engine** decides two things and knows no stack:
 
-- **Name.** The worktree directory's name. `--name` overrides it, and also
-  lets the main checkout get a worktree environment, which it otherwise
-  refuses: the main checkout is set up by hand.
+- **Name.** The worktree directory's name. In the main checkout the command
+  stops: the main checkout is set up by hand.
 - **Lifetime.** 14 days. `--expires <days>` or `--expires never` overrides.
 
 ag decides nothing about ports. The project's dev server takes a free port

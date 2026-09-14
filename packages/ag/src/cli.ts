@@ -5,7 +5,7 @@ import { gitIn, planSetup, type SetupOverrides } from "./worktree.ts";
 
 const USAGE = `usage: ag <command>
 
-  worktree setup [--name <name>] [--expires <days>|never]
+  worktree setup [--expires <days>|never]
       give this worktree its own environment and env files`;
 
 class UsageError extends Error {}
@@ -27,10 +27,7 @@ function parseFlags(argv: string[]): Flags {
 function setupOverrides(flags: Flags): SetupOverrides {
   const overrides: SetupOverrides = {};
   for (const [key, value] of Object.entries(flags)) {
-    if (key === "name") {
-      if (value === "") throw new UsageError("--name must not be empty");
-      overrides.name = value;
-    } else if (key === "expires") {
+    if (key === "expires") {
       const days = Number(value);
       if (value === "never") overrides.expires = null;
       else if (Number.isInteger(days) && days > 0) overrides.expires = days;

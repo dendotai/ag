@@ -84,13 +84,8 @@ describe("planSetup", () => {
       expect(planSetup({ root, git: worktreeGit })).toEqual({ name: "impl-3", expires: 14 });
     }));
 
-  test("main checkout: refuses, and names --name as the way through", () => {
-    expect(() => planSetup({ root: "/repo/main", git: mainGit })).toThrow("--name");
-  });
-
-  test("--name forces the worktree form in the main checkout", () => {
-    const plan = planSetup({ root: "/repo/main", git: mainGit, overrides: { name: "review-1" } });
-    expect(plan).toEqual({ name: "review-1", expires: 14 });
+  test("main checkout: refuses", () => {
+    expect(() => planSetup({ root: "/repo/main", git: mainGit })).toThrow("not a git worktree");
   });
 
   test("--expires overrides the lifetime, including no expiration", () =>
