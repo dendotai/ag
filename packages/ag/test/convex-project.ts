@@ -139,8 +139,8 @@ export function makeProject(): Project {
   chmodSync(join(bin, "convex"), 0o755);
 
   const statePath = join(state, "deployments.json");
-  const readState = () =>
-    JSON.parse(readFileSync(statePath, "utf8")) as { deployments: Record<string, Deployment> };
+  const readState = (): { deployments: Record<string, Deployment> } =>
+    existsSync(statePath) ? JSON.parse(readFileSync(statePath, "utf8")) : { deployments: {} };
   return {
     dir,
     root,
