@@ -39,6 +39,9 @@ export function convexAdapter(input: { root: string; config: AgConfig }): Adapte
         files,
       } = convexConfig(config);
       const apiDir = join(root, apiDirRelative);
+      // bun links a bin into the .bin of the package that declares the
+      // dependency, and hoists nothing to the root. Both entries are here
+      // because a project may declare `convex` in the api package or at the root.
       const binDirs = [join(root, "node_modules/.bin"), join(apiDir, "node_modules/.bin")];
 
       function convex(args: string[], capture = false) {
