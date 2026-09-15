@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+printf 'gh %s\n' "$*" >>"$STUB_LOG"
+printf '%s\n' "${STUB_GH_OUT:-}"
+exit "${STUB_GH_EXIT:-0}"
