@@ -61,8 +61,12 @@ function countRefusal(sessionId: string): number {
   return count;
 }
 
+// An empty AGENT_MAX_STOP_BLOCKS is a blanked settings entry, not a cap of
+// 0: Number("") is 0, which would stop every session after its first turn.
 function maxBlocks(): number {
-  const n = Number(process.env.AGENT_MAX_STOP_BLOCKS);
+  const raw = process.env.AGENT_MAX_STOP_BLOCKS?.trim();
+  if (!raw) return DEFAULT_MAX_BLOCKS;
+  const n = Number(raw);
   return Number.isInteger(n) && n >= 0 ? n : DEFAULT_MAX_BLOCKS;
 }
 

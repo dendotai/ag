@@ -15,8 +15,8 @@ let ticket7: HookInput;
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "ag-stop-hook-"));
   log = join(dir, "calls.log");
-  const cwd = join(dir, "7-seven");
-  mkdirSync(cwd);
+  const cwd = join(dir, ".claude", "worktrees", "7-seven");
+  mkdirSync(cwd, { recursive: true });
   ticket7 = { session_id: sessionId, cwd };
 });
 afterEach(() => rmSync(dir, { recursive: true, force: true }));
@@ -109,8 +109,16 @@ test("an unreadable cap falls back to the default", async () => {
   ).toContain("Stop refusal 1 of 5.");
 });
 
-test("cwd that is not a ticket worktree: the session is stopped without asking gh", async () => {
-  const res = await hook({ session_id: sessionId, cwd: dir });
+test("an empty cap falls back to the default, it does not disable the hook", async () => {
+  expect(await blockReason(ticket7, { STUB_GH_OUT: "OPEN", AGENT_MAX_STOP_BLOCKS: "" })).toContain(
+    "Stop refusal 1 of 5.",
+  );
+});
+
+test("a <number>-<slug> directory outside the worktrees dir is not a ticket", async () => {
+  const cwd = join(dir, "2024-migration");
+  mkdirSync(cwd);
+  const res = await hook({ session_id: sessionId, cwd });
   expect(res.exitCode).toBe(0);
   expect(res.stdout).toBe("");
   expect(await waitForStop()).toBe(stopCall);
