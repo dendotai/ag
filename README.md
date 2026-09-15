@@ -152,9 +152,8 @@ hook decides whether the session is done:
 4. After `AGENT_MAX_STOP_BLOCKS` refusals (default 5) the session is stopped
    anyway.
 
-The stop runs `claude stop <id>` detached from the hook and without
-`CLAUDECODE` in the environment, because a child of the hook dies with the
-hook and `CLAUDECODE` blocks nested `claude` commands.
+The stop runs `claude stop <id>` detached from the hook, because a child of
+the hook dies with the hook.
 
 The runner passes the hook at launch:
 

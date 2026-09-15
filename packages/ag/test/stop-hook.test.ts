@@ -7,7 +7,7 @@ import type { HookInput } from "../src/stop-hook.ts";
 const cli = new URL("../src/cli.ts", import.meta.url).pathname;
 const stubs = new URL("./stubs", import.meta.url).pathname;
 const sessionId = "abcdef12-3456-7890-abcd-ef1234567890";
-const stopCall = "claude stop abcdef12 CLAUDECODE=unset";
+const stopCall = "claude stop abcdef12";
 
 let dir: string;
 let log: string;
@@ -33,7 +33,6 @@ async function hook(input: HookInput, env: Record<string, string> = {}) {
       PATH: `${stubs}:${process.env.PATH}`,
       TMPDIR: dir,
       STUB_LOG: log,
-      CLAUDECODE: "1",
       ...env,
     },
   });
@@ -62,7 +61,7 @@ async function waitForStop(): Promise<string | undefined> {
   return undefined;
 }
 
-test("closed ticket: the session is stopped, detached and without CLAUDECODE", async () => {
+test("closed ticket: the session is stopped, detached", async () => {
   const res = await hook(ticket7, { STUB_GH_OUT: "CLOSED" });
   expect(res.exitCode).toBe(0);
   expect(res.stdout).toBe("");

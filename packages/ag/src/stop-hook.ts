@@ -12,7 +12,7 @@ import { spawn } from "node:child_process";
 import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { childEnv, run } from "./exec.ts";
+import { run } from "./exec.ts";
 import { shortSessionId, ticketOfPath } from "./ticket.ts";
 
 // Claude Code also sends stop_hook_active; the hook does not read it.
@@ -29,7 +29,6 @@ function stopSession(sessionId: string): void {
   const child = spawn("sh", ["-c", 'sleep 2; claude stop "$1"', "sh", shortSessionId(sessionId)], {
     detached: true,
     stdio: "ignore",
-    env: childEnv(),
   });
   child.unref();
 }
