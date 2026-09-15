@@ -28,11 +28,46 @@ type State = {
   error: string | null;
   remoteError: string | null;
 };
+// `defaultBranchRef` is null in a repo with no commits.
+type RepoView = { nameWithOwner: string; defaultBranchRef: { name: string } | null };
+
+// A bad value must not reach setInterval or Bun.serve: Number("5s") is NaN,
+// which polls in a tight loop and makes Bun pick a random free port.
+export function envNumber(name: string, fallback: number, ok: (n: number) => boolean): number {
+  const raw = process.env[name]?.trim();
+  if (!raw) return fallback;
+  const n = Number(raw);
+  if (ok(n)) return n;
+  console.warn(`ag dash: ${name}=${raw} is not usable, using ${fallback}`);
+  return fallback;
+}
+
+// Nothing awaits a setInterval callback: a pass slower than the interval
+// would stack on the next one, and a rejection would end the process.
+function every(ms: number, fn: () => Promise<void>): void {
+  let busy = false;
+  setInterval(async () => {
+    if (busy) return;
+    busy = true;
+    try {
+      await fn();
+    } catch (e) {
+      console.warn(`ag dash: poll failed: ${e}`);
+    } finally {
+      busy = false;
+    }
+  }, ms);
+}
 
 export async function dashMain(): Promise<void> {
-  const port = Number(process.env.AGENT_DASH_PORT ?? 7878);
-  const pollMs = Number(process.env.AGENT_DASH_POLL ?? 2) * 1000;
-  const remotePollMs = Number(process.env.AGENT_DASH_POLL_GH ?? 10) * 1000;
+  const seconds = (n: number): boolean => n > 0 && n <= 3600;
+  const port = envNumber(
+    "AGENT_DASH_PORT",
+    7878,
+    (n) => Number.isInteger(n) && n >= 1 && n <= 65535,
+  );
+  const pollMs = envNumber("AGENT_DASH_POLL", 2, seconds) * 1000;
+  const remotePollMs = envNumber("AGENT_DASH_POLL_GH", 10, seconds) * 1000;
   const home = homedir();
   const projectsDir = join(home, ".claude", "projects");
 
@@ -71,7 +106,17 @@ export async function dashMain(): Promise<void> {
         repo.root,
       ),
       run(
-        ["gh", "pr", "list", "--state", "open", "--json", "number,isDraft,url,body,headRefName"],
+        [
+          "gh",
+          "pr",
+          "list",
+          "--state",
+          "open",
+          "--limit",
+          "200",
+          "--json",
+          "number,isDraft,url,body,headRefName",
+        ],
         repo.root,
       ),
       run(["git", "ls-remote", "--heads", "origin"], repo.root),
@@ -93,19 +138,30 @@ export async function dashMain(): Promise<void> {
   }
 
   const repos = new Map<string, TrackedRepo>();
-  async function addRepo(root: string): Promise<void> {
-    if (repos.has(root)) return;
+  // The in-flight add is stored before the first await, so two overlapping
+  // collect() passes cannot add the same repo twice. A failed add is dropped
+  // from the map, so the next pass tries again.
+  const adding = new Map<string, Promise<void>>();
+  function addRepo(root: string): Promise<void> {
+    const hit = adding.get(root);
+    if (hit) return hit;
+    const started = createRepo(root).catch((e: unknown) => {
+      adding.delete(root);
+      throw e;
+    });
+    adding.set(root, started);
+    return started;
+  }
+  async function createRepo(root: string): Promise<void> {
     const view = await run(
       ["gh", "repo", "view", "--json", "nameWithOwner,defaultBranchRef"],
       root,
     );
-    const parsed = view.ok
-      ? (JSON.parse(view.out) as { nameWithOwner: string; defaultBranchRef: { name: string } })
-      : null;
+    const parsed = view.ok ? (JSON.parse(view.out) as RepoView) : null;
     const repo: TrackedRepo = {
       root,
       name: parsed?.nameWithOwner || root.split("/").slice(-2).join("/"),
-      defaultBranch: parsed?.defaultBranchRef.name || "main",
+      defaultBranch: parsed?.defaultBranchRef?.name || "main",
       issues: [],
       prs: [],
       pushed: new Set(),
@@ -138,16 +194,20 @@ export async function dashMain(): Promise<void> {
       if (root) await addRepo(root);
     }
     const tracked = [...repos.values()];
+    const [sessionTickets, worktreeList] = await Promise.all([
+      readSessionTickets(
+        projectsDir,
+        tracked.map((r) => r.root),
+      ),
+      Promise.all(tracked.map(worktrees)),
+    ]);
     return buildRows({
       home,
       repos: tracked,
       sessions,
       sessionRoots,
-      sessionTickets: readSessionTickets(
-        projectsDir,
-        tracked.map((r) => r.root),
-      ),
-      worktrees: (await Promise.all(tracked.map(worktrees))).flat(),
+      sessionTickets,
+      worktrees: worktreeList.flat(),
     });
   }
 
@@ -171,17 +231,28 @@ export async function dashMain(): Promise<void> {
     }
   }
   async function refreshRemote(): Promise<void> {
-    for (const repo of repos.values()) await fetchRemote(repo);
+    // Caught per repo: one repo whose gh output does not parse must not stop
+    // the repos after it.
+    for (const repo of repos.values()) {
+      try {
+        await fetchRemote(repo);
+      } catch (e) {
+        repo.remoteError = `${repo.name}: ${e}`;
+      }
+    }
     state = { ...state, remoteError: remoteError() };
   }
 
   const startRoot = await repoRoot(process.cwd());
   if (startRoot) await addRepo(startRoot);
   await refresh();
-  setInterval(refresh, pollMs);
-  setInterval(refreshRemote, remotePollMs);
+  every(pollMs, refresh);
+  every(remotePollMs, refreshRemote);
 
   Bun.serve({
+    // Loopback only: the board carries private repo names, issue titles,
+    // branch names and local paths. Bun binds 0.0.0.0 without this.
+    hostname: "127.0.0.1",
     port,
     fetch(req) {
       const { pathname } = new URL(req.url);
