@@ -10,6 +10,23 @@ per-project values a session needs, and the keychain that holds them.
 Status: early. `ag worktree setup`, `ag dash` and `ag stop-hook` exist; the
 other subcommands are tracked in the issues.
 
+## Prerequisites
+
+| Tool                   | Needed by                          |
+| ---------------------- | ---------------------------------- |
+| bun 1.2 or later       | every command                      |
+| git                    | `ag worktree setup`, `ag dash`     |
+| `gh`, authenticated    | `ag dash`, `ag stop-hook`          |
+| `claude`               | `ag dash`, `ag stop-hook`          |
+
+The project's own `convex` CLI comes from its `node_modules`, so it is not a
+machine prerequisite.
+
+Nothing checks these yet. A missing `gh` or `claude` makes a command return
+an empty result instead of an error: `ag dash` renders a board with no
+sessions, and `ag stop-hook` refuses to stop a session five times because it
+cannot read the ticket's labels. #15 adds the checks.
+
 ## Install
 
 `ag` is not on npm yet. A project pins it as a dev dependency at a git commit:
