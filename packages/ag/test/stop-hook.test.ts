@@ -15,7 +15,7 @@ let ticket7: HookInput;
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "ag-stop-hook-"));
   log = join(dir, "calls.log");
-  const cwd = join(dir, "impl-7");
+  const cwd = join(dir, "7-seven");
   mkdirSync(cwd);
   ticket7 = { session_id: sessionId, cwd };
 });
@@ -109,7 +109,7 @@ test("an unreadable cap falls back to the default", async () => {
   ).toContain("Stop refusal 1 of 5.");
 });
 
-test("cwd that is not an impl-N worktree: the session is stopped without asking gh", async () => {
+test("cwd that is not a ticket worktree: the session is stopped without asking gh", async () => {
   const res = await hook({ session_id: sessionId, cwd: dir });
   expect(res.exitCode).toBe(0);
   expect(res.stdout).toBe("");

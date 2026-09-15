@@ -137,7 +137,7 @@ ends, with `session_id`, `cwd` and `stop_hook_active` as JSON on stdin. A
 turn also ends while the session waits for a background subagent, so the
 hook decides whether the session is done:
 
-1. A `cwd` that is not an `impl-N` worktree: stop the session at once.
+1. A `cwd` that is not a `<number>-<slug>` worktree: stop the session at once.
 2. The ticket is closed, or carries `in-review` or `needs-human`: the session
    did its last step, stop it.
 3. Otherwise refuse the stop with a reason that tells the session to collect

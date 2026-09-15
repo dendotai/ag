@@ -1,7 +1,7 @@
-// The runner names a ticket's worktree `impl-<ticket number>`; the dashboard
-// and the stop hook both read the ticket back from that path.
+// The runner names a ticket's worktree `<ticket number>-<title slug>`; the
+// dashboard and the stop hook both read the ticket back from that path.
 export const ticketOfPath = (path: string): number | null => {
-  const m = /\/impl-(\d+)$/.exec(path);
+  const m = /\/(\d+)-[^/]*$/.exec(path);
   return m ? Number(m[1]) : null;
 };
 

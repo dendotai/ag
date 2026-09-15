@@ -35,7 +35,7 @@ const session = (
 
 const root = "/home/me/repo";
 const other = "/home/me/other";
-const wt = (n: number, base = root) => `${base}/.claude/worktrees/impl-${n}`;
+const wt = (n: number, base = root) => `${base}/.claude/worktrees/${n}-ticket`;
 
 const sources: Sources = {
   home: "/home/me",
@@ -78,7 +78,7 @@ const sources: Sources = {
     session("99999999-aaaa", root, 100, "idle", "interactive"),
     session("aaaaaaaa-aaaa", "/home/me/scratch", 100, "busy", "interactive"),
     session("bbbbbbbb-aaaa", "/home/me/scratch", 100),
-    // The other repo's impl-3 is that repo's ticket, not ours.
+    // The other repo's ticket 3 worktree is that repo's ticket, not ours.
     session("cccccccc-aaaa", wt(3, other), 100, "busy"),
   ],
   sessionRoots: new Map([
@@ -137,7 +137,7 @@ test("session: short id, kind, status, start time and name; the newest session w
   expect(row(4)?.session?.status).toBe("finished");
 });
 
-test("a session in another repo's impl-N worktree belongs to that repo", () => {
+test("a session in another repo's ticket worktree belongs to that repo", () => {
   expect(row(3)?.session).toBeNull();
   expect(row(3, "o/other")?.session?.id).toBe("cccccccc");
 });
@@ -165,13 +165,13 @@ test("state labels keep only the runner's labels", () => {
   expect(row(1)?.stateLabels).toEqual(["in-progress", "ready-for-agent"]);
 });
 
-test("parseWorktrees maps impl-N worktrees to their branch", () => {
+test("parseWorktrees maps ticket worktrees to their branch", () => {
   const porcelain = [
     "worktree /repo",
     "HEAD aaaa",
     "branch refs/heads/dev",
     "",
-    "worktree /repo/.claude/worktrees/impl-12",
+    "worktree /repo/.claude/worktrees/12-twelve",
     "HEAD bbbb",
     "branch refs/heads/feature/twelve",
     "",
@@ -181,13 +181,13 @@ test("parseWorktrees maps impl-N worktrees to their branch", () => {
     "",
   ].join("\n");
   expect(parseWorktrees(porcelain)).toEqual(
-    new Map([[12, { path: "/repo/.claude/worktrees/impl-12", branch: "feature/twelve" }]]),
+    new Map([[12, { path: "/repo/.claude/worktrees/12-twelve", branch: "feature/twelve" }]]),
   );
 });
 
 test("transcriptPrefix encodes the repo root the way Claude Code does", () => {
   expect(transcriptPrefix("/Users/den/Projects/_tools/ag")).toBe(
-    "-Users-den-Projects--tools-ag--claude-worktrees-impl-",
+    "-Users-den-Projects--tools-ag--claude-worktrees-",
   );
 });
 
@@ -195,9 +195,9 @@ test("readSessionTickets maps transcript files to their repo and ticket", () => 
   const projects = mkdtempSync(join(tmpdir(), "ag-dash-projects-"));
   try {
     const prefix = transcriptPrefix("/repo");
-    mkdirSync(join(projects, `${prefix}5`));
-    writeFileSync(join(projects, `${prefix}5`, "aaaa-1111.jsonl"), "");
-    writeFileSync(join(projects, `${prefix}5`, "notes.txt"), "");
+    mkdirSync(join(projects, `${prefix}5-five`));
+    writeFileSync(join(projects, `${prefix}5-five`, "aaaa-1111.jsonl"), "");
+    writeFileSync(join(projects, `${prefix}5-five`, "notes.txt"), "");
     mkdirSync(join(projects, `${prefix}x`));
     writeFileSync(join(projects, `${prefix}6`), "a file, not a directory");
     mkdirSync(join(projects, "-other-repo"));

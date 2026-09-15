@@ -5,7 +5,7 @@ import { join } from "node:path";
 // ~/.claude/projects/<slug>/<session-id>.jsonl, where the slug is the
 // session's cwd with "/" and "_" replaced by "-".
 export const transcriptPrefix = (root: string): string =>
-  `${root.replace(/[/_]/g, "-")}--claude-worktrees-impl-`;
+  `${root.replace(/[/_]/g, "-")}--claude-worktrees-`;
 
 export type TicketRef = { root: string; ticket: number };
 
@@ -25,7 +25,7 @@ export function readSessionTickets(projectsDir: string, roots: string[]): Map<st
     for (const root of roots) {
       const prefix = transcriptPrefix(root);
       if (!d.name.startsWith(prefix)) continue;
-      const ticket = Number(d.name.slice(prefix.length));
+      const ticket = Number(/^(\d+)-/.exec(d.name.slice(prefix.length))?.[1]);
       if (!Number.isInteger(ticket)) continue;
       for (const f of readdirSync(join(projectsDir, d.name))) {
         if (f.endsWith(".jsonl")) map.set(f.slice(0, -6), { root, ticket });
