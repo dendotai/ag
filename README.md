@@ -98,9 +98,11 @@ the deployment's URL.
 A local dashboard over every Claude session on the machine. Repositories are
 discovered from the sessions' working directories, plus the one the
 dashboard starts in. One row per ticket that has a worktree, a session, a
-state label or a pull request in its repository; a session without a ticket
-(an interactive chat, other background work) gets a row of its own. Open
-`http://localhost:7878`.
+pull request, or one of the labels `in-progress`, `in-review` and
+`needs-human`; a ticket that only waits in the queue (`ready-for-agent`
+alone) is not listed. A session without a ticket (an interactive chat, other
+background work) gets a row of its own. The server listens on the loopback
+address only: open `http://localhost:7878`.
 
 | Column  | Content                                                                 |
 | ------- | ----------------------------------------------------------------------- |
@@ -130,6 +132,9 @@ endpoint `/api/state` every 5.
 | `AGENT_DASH_POLL`    | `2`     | seconds between local polls          |
 | `AGENT_DASH_POLL_GH` | `10`    | seconds between GitHub/remote polls  |
 
+A value that is not a usable number is reported on stderr, and the default
+is used.
+
 ## `ag stop-hook`
 
 The `Stop` hook of a runner session. Claude Code runs it every time a turn
@@ -137,7 +142,8 @@ ends, with `session_id`, `cwd` and `stop_hook_active` as JSON on stdin. A
 turn also ends while the session waits for a background subagent, so the
 hook decides whether the session is done:
 
-1. A `cwd` that is not a `<number>-<slug>` worktree: stop the session at once.
+1. A `cwd` that is not a `.claude/worktrees/<number>-<slug>` worktree: stop
+   the session at once.
 2. The ticket is closed, or carries `in-review` or `needs-human`: the session
    did its last step, stop it.
 3. Otherwise refuse the stop with a reason that tells the session to collect

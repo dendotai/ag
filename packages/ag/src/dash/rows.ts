@@ -1,7 +1,8 @@
 // Dashboard rows from the collected sources. One row per ticket that has a
-// worktree, a session, a state label or a pull request in its repo; a session
-// without a ticket (an interactive chat, other background work) gets a row of
-// its own.
+// worktree, a session, a pull request, or one of the labels a session is at
+// work under (BUSY_LABEL); a session without a ticket (an interactive chat,
+// other background work) gets a row of its own. A ticket that only waits in
+// the queue (ready-for-agent alone) is not listed.
 import { shortSessionId, ticketOfPath } from "../ticket.ts";
 import type { TicketRef } from "./transcripts.ts";
 
