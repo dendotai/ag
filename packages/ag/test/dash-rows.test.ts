@@ -189,9 +189,11 @@ test("transcriptPrefix encodes the repo root the way Claude Code does", () => {
   expect(transcriptPrefix("/Users/den/Projects/_tools/ag")).toBe(
     "-Users-den-Projects--tools-ag--claude-worktrees-",
   );
+  // Every character that is not a letter or a digit, the dot included.
+  expect(transcriptPrefix("/home/me/site.co")).toBe("-home-me-site-co--claude-worktrees-");
 });
 
-test("readSessionTickets maps transcript files to their repo and ticket", () => {
+test("readSessionTickets maps transcript files to their repo and ticket", async () => {
   const projects = mkdtempSync(join(tmpdir(), "ag-dash-projects-"));
   try {
     const prefix = transcriptPrefix("/repo");
@@ -201,10 +203,10 @@ test("readSessionTickets maps transcript files to their repo and ticket", () => 
     mkdirSync(join(projects, `${prefix}x`));
     writeFileSync(join(projects, `${prefix}6`), "a file, not a directory");
     mkdirSync(join(projects, "-other-repo"));
-    expect(readSessionTickets(projects, ["/repo"])).toEqual(
+    expect(await readSessionTickets(projects, ["/repo"])).toEqual(
       new Map([["aaaa-1111", { root: "/repo", ticket: 5 }]]),
     );
-    expect(readSessionTickets(join(projects, "missing"), ["/repo"])).toEqual(new Map());
+    expect(await readSessionTickets(join(projects, "missing"), ["/repo"])).toEqual(new Map());
   } finally {
     rmSync(projects, { recursive: true, force: true });
   }
