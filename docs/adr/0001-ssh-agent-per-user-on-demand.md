@@ -73,10 +73,7 @@ touched, and nothing survives the worktree.
   platform-specific step: `security` on macOS, `secret-tool` on Linux, and
   nothing built in on Windows.
 
-## Rejected, with reasons
-
-These were examined and declined. The reasons are recorded so they are not
-re-opened without new information.
+## Rejected
 
 1. **One agent per session, socket inside the worktree.** Its coordination
    argument was based on avoidable code: the race it guarded came from one

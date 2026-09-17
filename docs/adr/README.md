@@ -22,7 +22,8 @@ undo a deliberate trade-off?* If yes, record it.
 - One file per decision: `NNNN-kebab-title.md`, zero-padded sequential number
   (`0001-…`, `0002-…`). `0000-template.md` is the template, not a decision.
 - Copy `0000-template.md` to start.
-- Sections: **Title**, **Status**, **Context**, **Decision**, **Consequences**.
+- Sections: **Title**, **Status**, **Context**, **Decision**, **Consequences**,
+  and **Rejected** when a declined option is likely to be proposed again.
 - **Status**: `Proposed` · `Accepted` · `Superseded` (note the superseding ADR).
 
 No status-lifecycle ceremony, no RFC process. Keep each one short.
