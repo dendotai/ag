@@ -48,7 +48,7 @@ async function ticketLabels(n: number, cwd: string): Promise<string> {
     ],
     cwd,
   );
-  return res.ok ? res.out : "(gh failed)";
+  return res.ok ? res.out : `(gh failed: ${res.err})`;
 }
 
 function countRefusal(sessionId: string): number {

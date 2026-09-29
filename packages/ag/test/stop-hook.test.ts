@@ -90,8 +90,10 @@ test("unfinished ticket: the stop is refused with the reason", async () => {
   expect(calls().some((c) => c.startsWith("claude"))).toBe(false);
 });
 
-test("gh failure counts as unfinished: the stop is refused", async () => {
-  expect(await blockReason(ticket7, { STUB_GH_EXIT: "1" })).toContain("labels: (gh failed)");
+test("gh failure counts as unfinished: the stop is refused with gh's error", async () => {
+  expect(
+    await blockReason(ticket7, { STUB_GH_EXIT: "1", STUB_GH_ERR: "HTTP 401: Bad credentials" }),
+  ).toContain("labels: (gh failed: HTTP 401: Bad credentials)");
 });
 
 test("refusals past the cap: the session is stopped anyway", async () => {

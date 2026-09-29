@@ -122,7 +122,7 @@ export async function dashMain(): Promise<void> {
       run(["git", "ls-remote", "--heads", "origin"], repo.root),
     ]);
     if (!issuesRes.ok || !prsRes.ok) {
-      repo.remoteError = `gh failed in ${repo.name}`;
+      repo.remoteError = `gh failed in ${repo.name}: ${issuesRes.ok ? prsRes.err : issuesRes.err}`;
       return;
     }
     repo.issues = JSON.parse(issuesRes.out) as Issue[];
