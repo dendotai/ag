@@ -54,6 +54,9 @@ const sources: Sources = {
       prs: [
         pr(20, false, "Closes #2\n\nbody", "feature/two"),
         pr(30, true, "no closing line", "feature/three"),
+        pr(40, true, "Fixed #4", "feature/four"),
+        pr(50, true, "resolves: #5", "feature/five"),
+        pr(90, true, "Prefixes #9", "feature/nine"),
       ],
       pushed: new Set(["feature/two", "feature/three"]),
     },
@@ -164,9 +167,11 @@ test("branch: name, commits ahead, pushed", () => {
   expect(row(2)?.branch).toEqual({ name: "feature/two", ahead: 2, pushed: true });
 });
 
-test("PR: by Closes #N, else by head branch; draft flag", () => {
+test("PR: by a GitHub closing keyword, else by head branch; draft flag", () => {
   expect(row(2)?.pr).toEqual({ number: 20, draft: false, url: "https://github.com/o/r/pull/20" });
   expect(row(3)?.pr).toEqual({ number: 30, draft: true, url: "https://github.com/o/r/pull/30" });
+  expect(row(4)?.pr?.number).toBe(40);
+  expect(row(5)?.pr?.number).toBe(50);
 });
 
 test("state labels keep only the runner's labels", () => {

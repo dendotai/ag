@@ -137,7 +137,7 @@ export function buildRows(s: Sources): Row[] {
   }
   for (const repo of s.repos) {
     for (const p of repo.prs) {
-      const m = /closes\s+#(\d+)/i.exec(p.body ?? "");
+      const m = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?):?\s+#(\d+)/i.exec(p.body ?? "");
       const n = m
         ? Number(m[1])
         : [...rows.values()].find((r) => r.repo === repo.name && r.branch?.name === p.headRefName)
