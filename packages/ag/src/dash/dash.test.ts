@@ -2,8 +2,8 @@ import { expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { buildRows, parseWorktrees, type Session, type Sources } from "../src/dash/rows.ts";
-import { readSessionTickets, transcriptPrefix } from "../src/dash/transcripts.ts";
+import { buildRows, parseWorktrees, type Session, type Sources } from "./rows.ts";
+import { readSessionTickets, transcriptPrefix } from "./transcripts.ts";
 
 const issue = (number: number, title: string, ...labels: string[]) => ({
   number,

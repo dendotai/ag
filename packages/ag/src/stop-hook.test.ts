@@ -2,10 +2,10 @@ import { afterEach, beforeEach, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { HookInput } from "../src/stop-hook.ts";
+import type { HookInput } from "./stop-hook.ts";
 
-const cli = new URL("../src/cli.ts", import.meta.url).pathname;
-const stubs = new URL("./stubs", import.meta.url).pathname;
+const cli = new URL("./cli.ts", import.meta.url).pathname;
+const stubs = new URL("../test/stubs", import.meta.url).pathname;
 const sessionId = "abcdef12-3456-7890-abcd-ef1234567890";
 const stopCall = "claude stop abcdef12";
 const view = (state: string, ...labels: string[]) =>
