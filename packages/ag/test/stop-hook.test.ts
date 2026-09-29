@@ -8,6 +8,8 @@ const cli = new URL("../src/cli.ts", import.meta.url).pathname;
 const stubs = new URL("./stubs", import.meta.url).pathname;
 const sessionId = "abcdef12-3456-7890-abcd-ef1234567890";
 const stopCall = "claude stop abcdef12";
+const view = (state: string, ...labels: string[]) =>
+  JSON.stringify({ state, labels: labels.map((name) => ({ name })) });
 
 let dir: string;
 let log: string;
@@ -63,41 +65,45 @@ async function waitForStop(): Promise<string | undefined> {
 }
 
 test("closed ticket: the session is stopped, detached", async () => {
-  const res = await hook(ticket7, { STUB_GH_OUT: "CLOSED" });
+  const res = await hook(ticket7, { STUB_GH_OUT: view("CLOSED") });
   expect(res.exitCode).toBe(0);
   expect(res.stdout).toBe("");
-  expect(calls()).toContain(
-    'gh issue view 7 --json state,labels --jq [.state, .labels[].name] | join(" ")',
-  );
+  expect(calls()).toContain("gh issue view 7 --json state,labels");
   expect(await waitForStop()).toBe(stopCall);
 });
 
 test("ticket in review: the session is stopped", async () => {
-  const res = await hook(ticket7, { STUB_GH_OUT: "OPEN in-review ready-for-agent" });
+  const res = await hook(ticket7, { STUB_GH_OUT: view("OPEN", "in-review", "ready-for-agent") });
   expect(res.stdout).toBe("");
   expect(await waitForStop()).toBe(stopCall);
 });
 
 test("unfinished ticket: the stop is refused with the reason", async () => {
-  const res = await hook(ticket7, { STUB_GH_OUT: "OPEN in-progress ready-for-agent" });
+  const res = await hook(ticket7, { STUB_GH_OUT: view("OPEN", "in-progress", "ready-for-agent") });
   expect(res.exitCode).toBe(0);
   const out = JSON.parse(res.stdout) as { decision: string; reason: string };
   expect(out.decision).toBe("block");
   expect(out.reason).toContain("ticket #7");
-  expect(out.reason).toContain("labels: OPEN in-progress ready-for-agent");
+  expect(out.reason).toContain("state OPEN, labels: in-progress, ready-for-agent");
   expect(out.reason).toContain("TaskOutput");
   expect(out.reason).toContain("Stop refusal 1 of 5.");
   expect(calls().some((c) => c.startsWith("claude"))).toBe(false);
 });
 
+test("a label named like a state does not close an open ticket", async () => {
+  expect(await blockReason(ticket7, { STUB_GH_OUT: view("OPEN", "CLOSED") })).toContain(
+    "state OPEN, labels: CLOSED",
+  );
+});
+
 test("gh failure counts as unfinished: the stop is refused with gh's error", async () => {
   expect(
     await blockReason(ticket7, { STUB_GH_EXIT: "1", STUB_GH_ERR: "HTTP 401: Bad credentials" }),
-  ).toContain("labels: (gh failed: HTTP 401: Bad credentials)");
+  ).toContain("(gh failed: HTTP 401: Bad credentials)");
 });
 
 test("refusals past the cap: the session is stopped anyway", async () => {
-  const env = { STUB_GH_OUT: "OPEN in-progress", AGENT_MAX_STOP_BLOCKS: "2" };
+  const env = { STUB_GH_OUT: view("OPEN", "in-progress"), AGENT_MAX_STOP_BLOCKS: "2" };
   expect(await blockReason(ticket7, env)).toContain("Stop refusal 1 of 2.");
   expect(await blockReason(ticket7, env)).toContain("Stop refusal 2 of 2.");
   const third = await hook(ticket7, env);
@@ -107,7 +113,7 @@ test("refusals past the cap: the session is stopped anyway", async () => {
 
 test("the refusal counter lives in ~/.ag/run and is deleted with the stop", async () => {
   const counter = join(dir, ".ag", "run", "stop-hook", sessionId);
-  const env = { STUB_GH_OUT: "OPEN", AGENT_MAX_STOP_BLOCKS: "1" };
+  const env = { STUB_GH_OUT: view("OPEN"), AGENT_MAX_STOP_BLOCKS: "1" };
   await hook(ticket7, env);
   expect(readFileSync(counter, "utf8")).toBe("1");
   await hook(ticket7, env);
@@ -117,20 +123,20 @@ test("the refusal counter lives in ~/.ag/run and is deleted with the stop", asyn
 
 test("an unreadable cap falls back to the default", async () => {
   expect(
-    await blockReason(ticket7, { STUB_GH_OUT: "OPEN", AGENT_MAX_STOP_BLOCKS: "many" }),
+    await blockReason(ticket7, { STUB_GH_OUT: view("OPEN"), AGENT_MAX_STOP_BLOCKS: "many" }),
   ).toContain("Stop refusal 1 of 5.");
 });
 
 test("an empty cap falls back to the default, it does not disable the hook", async () => {
-  expect(await blockReason(ticket7, { STUB_GH_OUT: "OPEN", AGENT_MAX_STOP_BLOCKS: "" })).toContain(
-    "Stop refusal 1 of 5.",
-  );
+  expect(
+    await blockReason(ticket7, { STUB_GH_OUT: view("OPEN"), AGENT_MAX_STOP_BLOCKS: "" }),
+  ).toContain("Stop refusal 1 of 5.");
 });
 
 test("a session in a subdirectory of its worktree keeps its ticket", async () => {
   const cwd = join(ticket7.cwd, "packages", "ag");
   mkdirSync(cwd, { recursive: true });
-  const reason = await blockReason({ session_id: sessionId, cwd }, { STUB_GH_OUT: "OPEN" });
+  const reason = await blockReason({ session_id: sessionId, cwd }, { STUB_GH_OUT: view("OPEN") });
   expect(reason).toContain("ticket #7");
 });
 

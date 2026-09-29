@@ -33,21 +33,11 @@ function stopSession(sessionId: string): void {
   child.unref();
 }
 
-async function ticketLabels(n: number, cwd: string): Promise<string> {
-  const res = await run(
-    [
-      "gh",
-      "issue",
-      "view",
-      String(n),
-      "--json",
-      "state,labels",
-      "--jq",
-      '[.state, .labels[].name] | join(" ")',
-    ],
-    cwd,
-  );
-  return res.ok ? res.out : `(gh failed: ${res.err})`;
+type TicketView = { state: "OPEN" | "CLOSED"; labels: { name: string }[] };
+
+async function viewTicket(n: number, cwd: string): Promise<TicketView | { error: string }> {
+  const res = await run(["gh", "issue", "view", String(n), "--json", "state,labels"], cwd);
+  return res.ok ? (JSON.parse(res.out) as TicketView) : { error: res.err };
 }
 
 function countRefusal(sessionId: string): number {
@@ -67,17 +57,25 @@ export async function stopHook(input: HookInput): Promise<void> {
   if (!n) return stopSession(sid);
 
   // A closed ticket has its state labels stripped, so the state is checked too.
-  const labels = await ticketLabels(n, input.cwd);
-  const words = labels.split(" ");
-  if (words.includes("CLOSED") || words.includes("in-review") || words.includes("needs-human"))
+  const view = await viewTicket(n, input.cwd);
+  const labels = "error" in view ? [] : view.labels.map((l) => l.name);
+  if (
+    ("state" in view && view.state === "CLOSED") ||
+    labels.includes("in-review") ||
+    labels.includes("needs-human")
+  )
     return stopSession(sid);
+  const found =
+    "error" in view
+      ? `gh failed: ${view.error}`
+      : `state ${view.state}, labels: ${labels.join(", ") || "none"}`;
 
   const max = envNumber("AGENT_MAX_STOP_BLOCKS", 5, (n) => Number.isInteger(n) && n >= 0);
   const count = countRefusal(sid);
   if (count > max) return stopSession(sid);
 
   const reason =
-    `Unattended ag session: ticket #${n} carries neither in-review nor needs-human (labels: ${labels}), ` +
+    `Unattended ag session: ticket #${n} carries neither in-review nor needs-human (${found}), ` +
     "so the work is not finished. Never end the turn to wait for anything. If subagents are still running, " +
     "call TaskOutput to collect their results now. Then finish: commit, push, open the pull request, and set " +
     "the label — in-review for a normal PR, or needs-human with the parking comment. " +
