@@ -103,7 +103,7 @@ test("gh failure counts as unfinished: the stop is refused with gh's error", asy
 });
 
 test("refusals past the cap: the session is stopped anyway", async () => {
-  const env = { STUB_GH_OUT: view("OPEN", "in-progress"), AGENT_MAX_STOP_BLOCKS: "2" };
+  const env = { STUB_GH_OUT: view("OPEN", "in-progress"), AG_MAX_STOP_BLOCKS: "2" };
   expect(await blockReason(ticket7, env)).toContain("Stop refusal 1 of 2.");
   expect(await blockReason(ticket7, env)).toContain("Stop refusal 2 of 2.");
   const third = await hook(ticket7, env);
@@ -113,7 +113,7 @@ test("refusals past the cap: the session is stopped anyway", async () => {
 
 test("the refusal counter lives in ~/.ag/run and is deleted with the stop", async () => {
   const counter = join(dir, ".ag", "run", "stop-hook", sessionId);
-  const env = { STUB_GH_OUT: view("OPEN"), AGENT_MAX_STOP_BLOCKS: "1" };
+  const env = { STUB_GH_OUT: view("OPEN"), AG_MAX_STOP_BLOCKS: "1" };
   await hook(ticket7, env);
   expect(readFileSync(counter, "utf8")).toBe("1");
   await hook(ticket7, env);
@@ -123,13 +123,13 @@ test("the refusal counter lives in ~/.ag/run and is deleted with the stop", asyn
 
 test("an unreadable cap falls back to the default", async () => {
   expect(
-    await blockReason(ticket7, { STUB_GH_OUT: view("OPEN"), AGENT_MAX_STOP_BLOCKS: "many" }),
+    await blockReason(ticket7, { STUB_GH_OUT: view("OPEN"), AG_MAX_STOP_BLOCKS: "many" }),
   ).toContain("Stop refusal 1 of 5.");
 });
 
 test("an empty cap falls back to the default, it does not disable the hook", async () => {
   expect(
-    await blockReason(ticket7, { STUB_GH_OUT: view("OPEN"), AGENT_MAX_STOP_BLOCKS: "" }),
+    await blockReason(ticket7, { STUB_GH_OUT: view("OPEN"), AG_MAX_STOP_BLOCKS: "" }),
   ).toContain("Stop refusal 1 of 5.");
 });
 

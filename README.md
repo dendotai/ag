@@ -126,11 +126,11 @@ directory `~/.claude/projects/<cwd-slug>/<session-id>.jsonl`. Local sources
 are polled every 2 seconds, GitHub every 10, and the page polls the JSON
 endpoint `/api/state` every 5.
 
-| Variable             | Default | Meaning                              |
-| -------------------- | ------- | ------------------------------------ |
-| `AGENT_DASH_PORT`    | `7878`  | port of the HTTP server              |
-| `AGENT_DASH_POLL`    | `2`     | seconds between local polls          |
-| `AGENT_DASH_POLL_GH` | `10`    | seconds between GitHub/remote polls  |
+| Variable          | Default | Meaning                              |
+| ----------------- | ------- | ------------------------------------ |
+| `AG_DASH_PORT`    | `7878`  | port of the HTTP server              |
+| `AG_DASH_POLL`    | `2`     | seconds between local polls          |
+| `AG_DASH_POLL_GH` | `10`    | seconds between GitHub/remote polls  |
 
 A value that is not a usable number is reported on stderr, and the default
 is used.
@@ -149,7 +149,7 @@ hook decides whether the session is done:
 3. Otherwise refuse the stop with a reason that tells the session to collect
    pending subagents with `TaskOutput` and then finish: commit, push, open
    the pull request, set the label.
-4. After `AGENT_MAX_STOP_BLOCKS` refusals (default 5) the session is stopped
+4. After `AG_MAX_STOP_BLOCKS` refusals (default 5) the session is stopped
    anyway.
 
 The stop runs `claude stop <id>` detached from the hook, because a child of

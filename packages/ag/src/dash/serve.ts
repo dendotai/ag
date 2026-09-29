@@ -1,8 +1,8 @@
 // `ag dash` — local dashboard over every Claude session on this machine.
 // Repos are discovered from the sessions' working directories, plus the one
 // the dashboard starts in. Polls `claude agents` and the worktrees every
-// AGENT_DASH_POLL seconds (2), GitHub and the remotes every
-// AGENT_DASH_POLL_GH seconds (10). Serves http://localhost:${AGENT_DASH_PORT:-7878}.
+// AG_DASH_POLL seconds (2), GitHub and the remotes every
+// AG_DASH_POLL_GH seconds (10). Serves http://localhost:${AG_DASH_PORT:-7878}.
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -51,13 +51,9 @@ function every(ms: number, fn: () => Promise<void>): void {
 
 export async function dashMain(): Promise<void> {
   const seconds = (n: number): boolean => n > 0 && n <= 3600;
-  const port = envNumber(
-    "AGENT_DASH_PORT",
-    7878,
-    (n) => Number.isInteger(n) && n >= 1 && n <= 65535,
-  );
-  const pollMs = envNumber("AGENT_DASH_POLL", 2, seconds) * 1000;
-  const remotePollMs = envNumber("AGENT_DASH_POLL_GH", 10, seconds) * 1000;
+  const port = envNumber("AG_DASH_PORT", 7878, (n) => Number.isInteger(n) && n >= 1 && n <= 65535);
+  const pollMs = envNumber("AG_DASH_POLL", 2, seconds) * 1000;
+  const remotePollMs = envNumber("AG_DASH_POLL_GH", 10, seconds) * 1000;
   const home = homedir();
   const projectsDir = join(home, ".claude", "projects");
 
