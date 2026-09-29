@@ -22,7 +22,14 @@ export type Pr = {
   body: string | null;
   headRefName: string;
 };
-export type Repo = { root: string; name: string; issues: Issue[]; prs: Pr[]; pushed: Set<string> };
+export type Repo = {
+  root: string;
+  name: string;
+  // null until the first `gh issue list` answers: no ticket is known closed yet.
+  issues: Issue[] | null;
+  prs: Pr[];
+  pushed: Set<string>;
+};
 export type Worktree = { root: string; ticket: number; branch: string; ahead: number };
 
 export type Sources = {
@@ -66,7 +73,7 @@ export function buildRows(s: Sources): Row[] {
     const key = `${repo.root}#${n}`;
     let r = rows.get(key);
     if (!r) {
-      const issue = repo.issues.find((i) => i.number === n);
+      const issue = repo.issues?.find((i) => i.number === n);
       r = {
         repo: repo.name,
         ticket: n,
@@ -84,7 +91,7 @@ export function buildRows(s: Sources): Row[] {
   };
 
   for (const repo of s.repos) {
-    for (const i of repo.issues) {
+    for (const i of repo.issues ?? []) {
       if (i.labels.some((l) => BUSY_LABEL.test(l.name))) ticketRow(repo, i.number);
     }
   }
@@ -151,8 +158,13 @@ export function buildRows(s: Sources): Row[] {
   return [...rows.values()]
     .filter((r) => {
       if (r.ticket === null) return r.session?.status !== "finished";
-      const repo = s.repos.find((x) => x.name === r.repo);
-      return repo?.issues.some((i) => i.number === r.ticket) || r.verdict === "running" || r.pr;
+      const issues = s.repos.find((x) => x.name === r.repo)?.issues;
+      return (
+        issues === null ||
+        issues?.some((i) => i.number === r.ticket) ||
+        r.verdict === "running" ||
+        r.pr
+      );
     })
     .sort(
       (a, b) =>

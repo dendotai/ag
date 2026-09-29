@@ -162,7 +162,7 @@ export async function dashMain(): Promise<void> {
       root,
       name: parsed?.nameWithOwner || root.split("/").slice(-2).join("/"),
       defaultBranch: parsed?.defaultBranchRef?.name || "main",
-      issues: [],
+      issues: null,
       prs: [],
       pushed: new Set(),
       remoteError: null,

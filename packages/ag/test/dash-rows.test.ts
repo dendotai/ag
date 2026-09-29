@@ -126,6 +126,14 @@ test("a closed ticket stays only while a session runs", () => {
   expect(row(7)).toBeUndefined();
 });
 
+test("before the first issue list answers, a ticket row is not taken for closed", () => {
+  const unfetched = buildRows({
+    ...sources,
+    repos: sources.repos.map((r) => ({ ...r, issues: null })),
+  });
+  expect(unfetched.some((r) => r.repo === "o/r" && r.ticket === 7)).toBe(true);
+});
+
 test("session: short id, kind, status, start time and name; the newest session wins", () => {
   expect(row(1)?.session).toEqual({
     id: "11111111",
