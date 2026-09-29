@@ -5,7 +5,7 @@
 // labels are: the session's last step sets in-review or needs-human. With
 // one of them present the session is stopped; without, the stop is refused
 // and the session continues with the reason as its next input.
-// AGENT_MAX_STOP_BLOCKS (5) refusals per session, then the session is
+// AG_MAX_STOP_BLOCKS (5) refusals per session, then the session is
 // stopped anyway, so a session that can never reach the label does not run
 // forever.
 import { spawn } from "node:child_process";
@@ -70,7 +70,7 @@ export async function stopHook(input: HookInput): Promise<void> {
       ? `gh failed: ${view.error}`
       : `state ${view.state}, labels: ${labels.join(", ") || "none"}`;
 
-  const max = envNumber("AGENT_MAX_STOP_BLOCKS", 5, (n) => Number.isInteger(n) && n >= 0);
+  const max = envNumber("AG_MAX_STOP_BLOCKS", 5, (n) => Number.isInteger(n) && n >= 0);
   const count = countRefusal(sid);
   if (count > max) return stopSession(sid);
 
