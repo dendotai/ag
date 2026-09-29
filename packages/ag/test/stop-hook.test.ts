@@ -127,6 +127,13 @@ test("an empty cap falls back to the default, it does not disable the hook", asy
   );
 });
 
+test("a session in a subdirectory of its worktree keeps its ticket", async () => {
+  const cwd = join(ticket7.cwd, "packages", "ag");
+  mkdirSync(cwd, { recursive: true });
+  const reason = await blockReason({ session_id: sessionId, cwd }, { STUB_GH_OUT: "OPEN" });
+  expect(reason).toContain("ticket #7");
+});
+
 test("a <number>-<slug> directory outside the worktrees dir is not a ticket", async () => {
   const cwd = join(dir, "2024-migration");
   mkdirSync(cwd);

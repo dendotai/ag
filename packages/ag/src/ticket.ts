@@ -3,7 +3,7 @@
 // path. The directory is part of the match: a repo of its own named
 // `2024-migration` is not ticket 2024.
 export const ticketOfPath = (path: string): number | null => {
-  const m = /\/\.claude\/worktrees\/(\d+)-[^/]*$/.exec(path);
+  const m = /\/\.claude\/worktrees\/(\d+)-[^/]*(?:\/|$)/.exec(path);
   return m ? Number(m[1]) : null;
 };
 
