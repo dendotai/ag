@@ -1,4 +1,3 @@
-// The dashboard page: one static HTML document that polls /api/state.
 export const page = /* html */ `<!doctype html>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width">
 <title>ag dash</title>
