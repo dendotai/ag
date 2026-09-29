@@ -9,9 +9,9 @@
 // stopped anyway, so a session that can never reach the label does not run
 // forever.
 import { spawn } from "node:child_process";
-import { readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
 import { run } from "./exec.ts";
 import { shortSessionId, ticketOfPath } from "./ticket.ts";
 
@@ -20,7 +20,8 @@ export type HookInput = { session_id: string; cwd: string };
 
 const DEFAULT_MAX_BLOCKS = 5;
 
-const counterPath = (sessionId: string): string => join(tmpdir(), `ag-stop-hook-${sessionId}`);
+const counterPath = (sessionId: string): string =>
+  join(homedir(), ".ag", "run", "stop-hook", sessionId);
 
 // Detached, because a child of the hook dies with the hook. The delay lets
 // the hook return and the turn end before the stop lands.
@@ -56,6 +57,7 @@ function countRefusal(sessionId: string): number {
     previous = Number(readFileSync(counterPath(sessionId), "utf8")) || 0;
   } catch {}
   const count = previous + 1;
+  mkdirSync(dirname(counterPath(sessionId)), { recursive: true });
   writeFileSync(counterPath(sessionId), String(count));
   return count;
 }

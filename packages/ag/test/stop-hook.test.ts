@@ -31,6 +31,7 @@ async function hook(input: HookInput, env: Record<string, string> = {}) {
     env: {
       ...process.env,
       PATH: `${stubs}:${process.env.PATH}`,
+      HOME: dir,
       TMPDIR: dir,
       STUB_LOG: log,
       ...env,
@@ -100,6 +101,16 @@ test("refusals past the cap: the session is stopped anyway", async () => {
   const third = await hook(ticket7, env);
   expect(third.stdout).toBe("");
   expect(await waitForStop()).toBe(stopCall);
+});
+
+test("the refusal counter lives in ~/.ag/run and is deleted with the stop", async () => {
+  const counter = join(dir, ".ag", "run", "stop-hook", sessionId);
+  const env = { STUB_GH_OUT: "OPEN", AGENT_MAX_STOP_BLOCKS: "1" };
+  await hook(ticket7, env);
+  expect(readFileSync(counter, "utf8")).toBe("1");
+  await hook(ticket7, env);
+  expect(await waitForStop()).toBe(stopCall);
+  expect(existsSync(counter)).toBe(false);
 });
 
 test("an unreadable cap falls back to the default", async () => {
