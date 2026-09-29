@@ -6,6 +6,7 @@
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { envNumber } from "../env-number.ts";
 import { run } from "../exec.ts";
 import { page } from "./page.ts";
 import {
@@ -30,17 +31,6 @@ type State = {
 };
 // `defaultBranchRef` is null in a repo with no commits.
 type RepoView = { nameWithOwner: string; defaultBranchRef: { name: string } | null };
-
-// A bad value must not reach setInterval or Bun.serve: Number("5s") is NaN,
-// which polls in a tight loop and makes Bun pick a random free port.
-export function envNumber(name: string, fallback: number, ok: (n: number) => boolean): number {
-  const raw = process.env[name]?.trim();
-  if (!raw) return fallback;
-  const n = Number(raw);
-  if (ok(n)) return n;
-  console.warn(`ag dash: ${name}=${raw} is not usable, using ${fallback}`);
-  return fallback;
-}
 
 // Nothing awaits a setInterval callback: a pass slower than the interval
 // would stack on the next one, and a rejection would end the process.

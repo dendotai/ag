@@ -12,13 +12,12 @@ import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
+import { envNumber } from "./env-number.ts";
 import { run } from "./exec.ts";
 import { shortSessionId, ticketOfPath } from "./ticket.ts";
 
 // Claude Code also sends stop_hook_active; the hook does not read it.
 export type HookInput = { session_id: string; cwd: string };
-
-const DEFAULT_MAX_BLOCKS = 5;
 
 const counterPath = (sessionId: string): string =>
   join(homedir(), ".ag", "run", "stop-hook", sessionId);
@@ -62,15 +61,6 @@ function countRefusal(sessionId: string): number {
   return count;
 }
 
-// An empty AGENT_MAX_STOP_BLOCKS is a blanked settings entry, not a cap of
-// 0: Number("") is 0, which would stop every session after its first turn.
-function maxBlocks(): number {
-  const raw = process.env.AGENT_MAX_STOP_BLOCKS?.trim();
-  if (!raw) return DEFAULT_MAX_BLOCKS;
-  const n = Number(raw);
-  return Number.isInteger(n) && n >= 0 ? n : DEFAULT_MAX_BLOCKS;
-}
-
 export async function stopHook(input: HookInput): Promise<void> {
   const sid = input.session_id;
   const n = ticketOfPath(input.cwd);
@@ -82,7 +72,7 @@ export async function stopHook(input: HookInput): Promise<void> {
   if (words.includes("CLOSED") || words.includes("in-review") || words.includes("needs-human"))
     return stopSession(sid);
 
-  const max = maxBlocks();
+  const max = envNumber("AGENT_MAX_STOP_BLOCKS", 5, (n) => Number.isInteger(n) && n >= 0);
   const count = countRefusal(sid);
   if (count > max) return stopSession(sid);
 
