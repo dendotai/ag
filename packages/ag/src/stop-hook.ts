@@ -1,0 +1,88 @@
+// `ag stop-hook` — the Stop hook of the sessions the runner launches.
+// Claude Code runs it every time the session ends a turn, with a JSON object
+// on stdin. The turn also ends when the session merely waits for a
+// background subagent, so "turn ended" is not "work done". The ticket's
+// labels are: the session's last step sets in-review or needs-human. With
+// one of them present the session is stopped; without, the stop is refused
+// and the session continues with the reason as its next input.
+// AGENT_MAX_STOP_BLOCKS (5) refusals per session, then the session is
+// stopped anyway, so a session that can never reach the label does not run
+// forever.
+import { spawn } from "node:child_process";
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
+import { envNumber } from "./env-number.ts";
+import { run } from "./exec.ts";
+import { shortSessionId, ticketOfPath } from "./ticket.ts";
+
+// Claude Code also sends stop_hook_active; the hook does not read it.
+export type HookInput = { session_id: string; cwd: string };
+
+const counterPath = (sessionId: string): string =>
+  join(homedir(), ".ag", "run", "stop-hook", sessionId);
+
+// Detached, because a child of the hook dies with the hook. The delay lets
+// the hook return and the turn end before the stop lands.
+function stopSession(sessionId: string): void {
+  rmSync(counterPath(sessionId), { force: true });
+  const child = spawn("sh", ["-c", 'sleep 2; claude stop "$1"', "sh", shortSessionId(sessionId)], {
+    detached: true,
+    stdio: "ignore",
+  });
+  child.unref();
+}
+
+type TicketView = { state: "OPEN" | "CLOSED"; labels: { name: string }[] };
+
+async function viewTicket(n: number, cwd: string): Promise<TicketView | { error: string }> {
+  const res = await run(["gh", "issue", "view", String(n), "--json", "state,labels"], cwd);
+  return res.ok ? (JSON.parse(res.out) as TicketView) : { error: res.err };
+}
+
+function countRefusal(sessionId: string): number {
+  let previous = 0;
+  try {
+    previous = Number(readFileSync(counterPath(sessionId), "utf8")) || 0;
+  } catch {}
+  const count = previous + 1;
+  mkdirSync(dirname(counterPath(sessionId)), { recursive: true });
+  writeFileSync(counterPath(sessionId), String(count));
+  return count;
+}
+
+export async function stopHook(input: HookInput): Promise<void> {
+  const sid = input.session_id;
+  const n = ticketOfPath(input.cwd);
+  if (!n) return stopSession(sid);
+
+  // A closed ticket has its state labels stripped, so the state is checked too.
+  const view = await viewTicket(n, input.cwd);
+  const labels = "error" in view ? [] : view.labels.map((l) => l.name);
+  if (
+    ("state" in view && view.state === "CLOSED") ||
+    labels.includes("in-review") ||
+    labels.includes("needs-human")
+  )
+    return stopSession(sid);
+  const found =
+    "error" in view
+      ? `gh failed: ${view.error}`
+      : `state ${view.state}, labels: ${labels.join(", ") || "none"}`;
+
+  const max = envNumber("AGENT_MAX_STOP_BLOCKS", 5, (n) => Number.isInteger(n) && n >= 0);
+  const count = countRefusal(sid);
+  if (count > max) return stopSession(sid);
+
+  const reason =
+    `Unattended ag session: ticket #${n} carries neither in-review nor needs-human (${found}), ` +
+    "so the work is not finished. Never end the turn to wait for anything. If subagents are still running, " +
+    "call TaskOutput to collect their results now. Then finish: commit, push, open the pull request, and set " +
+    "the label — in-review for a normal PR, or needs-human with the parking comment. " +
+    `Stop refusal ${count} of ${max}.`;
+  console.log(JSON.stringify({ decision: "block", reason }));
+}
+
+export async function stopHookMain(): Promise<void> {
+  await stopHook(JSON.parse(await Bun.stdin.text()) as HookInput);
+}
