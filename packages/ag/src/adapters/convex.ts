@@ -1,7 +1,4 @@
-// Convex adapter: one dev deployment per environment, selected or created
-// through the project's own `convex` CLI, whose login is the credential.
-// The deployment is `<team>:<project>:dev/agent/<name>`. A failed select
-// means the deployment does not exist yet or expired, so create replaces it.
+// Convex adapter: one dev deployment per environment, selected or created through the project's own `convex` CLI, whose login is the credential. The deployment is `<team>:<project>:dev/agent/<name>`. A failed select means the deployment does not exist yet or expired, so create replaces it.
 
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
@@ -21,8 +18,7 @@ function convexConfig(config: AgConfig): ConvexConfig {
   return convex;
 }
 
-// A worktree environment is temporary; without an expiration Convex keeps
-// a dev deployment forever.
+// A worktree environment is temporary; without an expiration Convex keeps a dev deployment forever.
 export const DEFAULT_EXPIRATION: ConvexExpiration = "in 5 days";
 
 export function convexAdapter(input: { root: string; config: AgConfig }): Adapter {
@@ -39,9 +35,7 @@ export function convexAdapter(input: { root: string; config: AgConfig }): Adapte
         files,
       } = convexConfig(config);
       const apiDir = join(root, apiDirRelative);
-      // bun links a bin into the .bin of the package that declares the
-      // dependency, and hoists nothing to the root. Both entries are here
-      // because a project may declare `convex` in the api package or at the root.
+      // bun links a bin into the .bin of the package that declares the dependency, and hoists nothing to the root. Both entries are here because a project may declare `convex` in the api package or at the root.
       const binDirs = [join(root, "node_modules/.bin"), join(apiDir, "node_modules/.bin")];
 
       function convex(args: string[], capture = false) {

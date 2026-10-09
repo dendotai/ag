@@ -1,6 +1,4 @@
-// End-to-end: `ag worktree setup` in a real git repository with worktrees,
-// against the fake convex. Asserts the commands issued, the files written,
-// and idempotence.
+// End-to-end: `ag worktree setup` in a real git repository with worktrees, against the fake convex. Asserts the commands issued, the files written, and idempotence.
 
 import { describe, expect, test } from "bun:test";
 import { execFileSync, spawnSync } from "node:child_process";

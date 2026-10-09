@@ -1,5 +1,4 @@
-// The worktree engine: is this checkout a git worktree, and what is its name.
-// Knows no stack.
+// The worktree engine: is this checkout a git worktree, and what is its name. Knows no stack.
 
 import { spawnSync } from "node:child_process";
 import { basename, resolve } from "node:path";
@@ -13,8 +12,7 @@ export function gitIn(cwd: string): Git {
   };
 }
 
-// A linked worktree has its own git dir under the main checkout's `.git`;
-// the main checkout's git dir and common dir are the same directory.
+// A linked worktree has its own git dir under the main checkout's `.git`; the main checkout's git dir and common dir are the same directory.
 export function isWorktree(root: string, git: Git): boolean {
   const gitDir = git(["rev-parse", "--git-dir"]);
   const commonDir = git(["rev-parse", "--git-common-dir"]);
