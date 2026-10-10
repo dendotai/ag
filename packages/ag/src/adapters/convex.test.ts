@@ -1,5 +1,4 @@
-// The adapter seam alone: what the config's `env` and `files` functions do.
-// The commands issued and the files written end to end are in cli.test.ts.
+// The adapter seam alone: what the config's `env` and `files` functions do. The commands issued and the files written end to end are in cli.test.ts.
 
 import { describe, expect, test } from "bun:test";
 import { callsNamed, envValue, readEnv, withProject } from "../../test/convex-project.ts";

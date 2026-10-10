@@ -71,12 +71,10 @@ const sources: Sources = {
   sessions: [
     session("11111111-aaaa", wt(1), 100, "busy"),
     session("22222222-aaaa", wt(4), 100),
-    // A finished session reports the main checkout as cwd; the transcript
-    // map names its ticket.
+    // A finished session reports the main checkout as cwd; the transcript map names its ticket.
     session("66666666-aaaa", root, 100, "busy"),
     session("77777777-aaaa", root, 100),
-    // Interactive sessions count: an older busy one in the same worktree
-    // loses to the newer background one above.
+    // Interactive sessions count: an older busy one in the same worktree loses to the newer background one above.
     session("88888888-aaaa", wt(1), 50, "busy", "interactive"),
     session("99999999-aaaa", root, 100, "idle", "interactive"),
     session("aaaaaaaa-aaaa", "/home/me/scratch", 100, "busy", "interactive"),

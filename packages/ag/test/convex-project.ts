@@ -1,7 +1,4 @@
-// A throwaway project with an `ag.config.ts` and a fake `convex` in its
-// node_modules/.bin. The fake keeps its deployments in a JSON file and writes
-// the same `.env.local` lines the real CLI writes on select. Every call is
-// appended to calls.jsonl, so a test asserts the commands issued and nothing else.
+// A throwaway project with an `ag.config.ts` and a fake `convex` in its node_modules/.bin. The fake keeps its deployments in a JSON file and writes the same `.env.local` lines the real CLI writes on select. Every call is appended to calls.jsonl, so a test asserts the commands issued and nothing else.
 
 import {
   chmodSync,

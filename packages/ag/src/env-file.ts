@@ -12,8 +12,7 @@ export function parseEnvFile(path: string): EnvValues {
   return out;
 }
 
-// Replaces the line of each key that exists and appends the others, so the
-// developer's own lines in the file survive.
+// Replaces the line of each key that exists and appends the others, so the developer's own lines in the file survive.
 export function upsertEnvFile(path: string, entries: EnvValues): void {
   let text = existsSync(path) ? readFileSync(path, "utf8") : "";
   for (const [key, value] of Object.entries(entries)) {
