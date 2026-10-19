@@ -1,8 +1,4 @@
-// Dashboard rows from the collected sources. One row per ticket that has a
-// worktree, a session, a pull request, or one of the labels a session is at
-// work under (BUSY_LABEL); a session without a ticket (an interactive chat,
-// other background work) gets a row of its own. A ticket that only waits in
-// the queue (ready-for-agent alone) is not listed.
+// Dashboard rows from the collected sources. One row per ticket that has a worktree, a session, a pull request, or one of the labels a session is at work under (BUSY_LABEL); a session without a ticket (an interactive chat, other background work) gets a row of its own. A ticket that only waits in the queue (ready-for-agent alone) is not listed.
 import { shortSessionId, ticketOfPath } from "../ticket.ts";
 import type { TicketRef } from "./transcripts.ts";
 
@@ -153,8 +149,7 @@ export function buildRows(s: Sources): Row[] {
     else if (r.pr && !r.pr.draft) r.verdict = "done";
     else if (r.session?.status === "finished") r.verdict = "stalled";
   }
-  // A closed ticket stays only while a session still runs or a PR is open;
-  // a finished ticketless background session is noise.
+  // A closed ticket stays only while a session still runs or a PR is open; a finished ticketless background session is noise.
   return [...rows.values()]
     .filter((r) => {
       if (r.ticket === null) return r.session?.status !== "finished";

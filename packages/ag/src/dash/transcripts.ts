@@ -1,19 +1,13 @@
 import { readdir } from "node:fs/promises";
 import { join } from "node:path";
 
-// Claude Code keeps a session's transcript under
-// ~/.claude/projects/<slug>/<session-id>.jsonl, where the slug is the
-// session's cwd with every character that is not a letter or a digit
-// replaced by "-".
+// Claude Code keeps a session's transcript under ~/.claude/projects/<slug>/<session-id>.jsonl, where the slug is the session's cwd with every character that is not a letter or a digit replaced by "-".
 export const transcriptPrefix = (root: string): string =>
   `${root.replace(/[^a-zA-Z0-9]/g, "-")}--claude-worktrees-`;
 
 export type TicketRef = { root: string; ticket: number };
 
-// Full session id → the repo and ticket whose worktree the session ran in. A
-// finished background session reports the main checkout as cwd, so the
-// transcript location is the only record of its worktree. Async, because the
-// dashboard reads it on every local poll and must not block its own server.
+// Full session id → the repo and ticket whose worktree the session ran in. A finished background session reports the main checkout as cwd, so the transcript location is the only record of its worktree. Async, because the dashboard reads it on every local poll and must not block its own server.
 export async function readSessionTickets(
   projectsDir: string,
   roots: string[],

@@ -1,6 +1,4 @@
-// The package's public surface: what a project's `ag.config.ts` imports.
-// Types only, plus the identity helper, so a consumer's type check pulls in
-// nothing else of ag.
+// The package's public surface: what a project's `ag.config.ts` imports. Types only, plus the identity helper, so a consumer's type check pulls in nothing else of ag.
 
 /** What `convex deployment create --expiration` accepts. Convex requires 30 minutes to 1 year from now. */
 export type ConvexExpiration =
@@ -16,9 +14,7 @@ export interface ConvexConfig {
   team: string;
   project: string;
   /**
-   * Absent: ag passes "in 5 days". ag always passes an expiration, because a
-   * dev deployment created without one never expires (Convex CLI 1.45; only
-   * preview deployments expire on their own).
+   * Absent: ag passes "in 5 days". ag always passes an expiration, because a dev deployment created without one never expires (Convex CLI 1.45; only preview deployments expire on their own).
    */
   expiration?: ConvexExpiration;
   /** Values to store on a fresh deployment before its first push. A value already stored is never touched. */

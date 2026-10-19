@@ -1,5 +1,4 @@
-// `ag.config.ts` at the project root is the only thing ag knows about a
-// project. Without it, ag does not guess.
+// `ag.config.ts` at the project root is the only thing ag knows about a project. Without it, ag does not guess.
 
 import { existsSync } from "node:fs";
 import { join } from "node:path";

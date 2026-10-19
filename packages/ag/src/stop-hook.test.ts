@@ -52,8 +52,7 @@ async function hook(input: HookInput, env: Record<string, string> = {}) {
 const blockReason = async (input: HookInput, env: Record<string, string>) =>
   (JSON.parse((await hook(input, env)).stdout) as { decision: "block"; reason: string }).reason;
 
-// The stop runs detached after a short delay, so the stub's record arrives
-// after the hook has exited.
+// The stop runs detached after a short delay, so the stub's record arrives after the hook has exited.
 async function waitForStop(): Promise<string | undefined> {
   const deadline = Date.now() + 8000;
   while (Date.now() < deadline) {

@@ -1,5 +1,4 @@
-// The contract between the engine and a stack adapter. The engine names the
-// environment; the adapter makes it exist and knows nothing about worktrees.
+// The contract between the engine and a stack adapter. The engine names the environment; the adapter makes it exist and knows nothing about worktrees.
 
 import { convexAdapter } from "./adapters/convex.ts";
 import type { AgConfig } from "./index.ts";

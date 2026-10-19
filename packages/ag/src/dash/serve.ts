@@ -1,8 +1,5 @@
 // `ag dash` — local dashboard over every Claude session on this machine.
-// Repos are discovered from the sessions' working directories, plus the one
-// the dashboard starts in. Polls `claude agents` and the worktrees every
-// AG_DASH_POLL seconds (2), GitHub and the remotes every
-// AG_DASH_POLL_GH seconds (10). Serves http://localhost:${AG_DASH_PORT:-7878}.
+// Repos are discovered from the sessions' working directories, plus the one the dashboard starts in. Polls `claude agents` and the worktrees every AG_DASH_POLL seconds (2), GitHub and the remotes every AG_DASH_POLL_GH seconds (10). Serves http://localhost:${AG_DASH_PORT:-7878}.
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
@@ -32,8 +29,7 @@ type State = {
 // `defaultBranchRef` is null in a repo with no commits.
 type RepoView = { nameWithOwner: string; defaultBranchRef: { name: string } | null };
 
-// Nothing awaits a setInterval callback: a pass slower than the interval
-// would stack on the next one, and a rejection would end the process.
+// Nothing awaits a setInterval callback: a pass slower than the interval would stack on the next one, and a rejection would end the process.
 function every(ms: number, fn: () => Promise<void>): void {
   let busy = false;
   setInterval(async () => {
@@ -57,8 +53,7 @@ export async function dashMain(): Promise<void> {
   const home = homedir();
   const projectsDir = join(home, ".claude", "projects");
 
-  // Main checkout of the repo that holds cwd; a worktree resolves to its main
-  // checkout, because that is where the tickets, PRs and worktree list live.
+  // Main checkout of the repo that holds cwd; a worktree resolves to its main checkout, because that is where the tickets, PRs and worktree list live.
   const rootCache = new Map<string, string | null>();
   async function repoRoot(cwd: string): Promise<string | null> {
     const hit = rootCache.get(cwd);
@@ -72,9 +67,7 @@ export async function dashMain(): Promise<void> {
     return root;
   }
 
-  // GitHub and the remote are slow and rate-limited: polled less often than
-  // the local sources, last answer kept. A failed ls-remote keeps the old
-  // pushed set; the issues and PRs still refresh.
+  // GitHub and the remote are slow and rate-limited: polled less often than the local sources, last answer kept. A failed ls-remote keeps the old pushed set; the issues and PRs still refresh.
   async function fetchRemote(repo: TrackedRepo): Promise<void> {
     const [issuesRes, prsRes, heads] = await Promise.all([
       run(
@@ -124,9 +117,7 @@ export async function dashMain(): Promise<void> {
   }
 
   const repos = new Map<string, TrackedRepo>();
-  // The in-flight add is stored before the first await, so two overlapping
-  // collect() passes cannot add the same repo twice. A failed add is dropped
-  // from the map, so the next pass tries again.
+  // The in-flight add is stored before the first await, so two overlapping collect() passes cannot add the same repo twice. A failed add is dropped from the map, so the next pass tries again.
   const adding = new Map<string, Promise<void>>();
   function addRepo(root: string): Promise<void> {
     const hit = adding.get(root);
@@ -217,8 +208,7 @@ export async function dashMain(): Promise<void> {
     }
   }
   async function refreshRemote(): Promise<void> {
-    // Caught per repo: one repo whose gh output does not parse must not stop
-    // the repos after it.
+    // Caught per repo: one repo whose gh output does not parse must not stop the repos after it.
     for (const repo of repos.values()) {
       try {
         await fetchRemote(repo);
@@ -236,8 +226,7 @@ export async function dashMain(): Promise<void> {
   every(remotePollMs, refreshRemote);
 
   Bun.serve({
-    // Loopback only: the board carries private repo names, issue titles,
-    // branch names and local paths. Bun binds 0.0.0.0 without this.
+    // Loopback only: the board carries private repo names, issue titles, branch names and local paths. Bun binds 0.0.0.0 without this.
     hostname: "127.0.0.1",
     port,
     fetch(req) {

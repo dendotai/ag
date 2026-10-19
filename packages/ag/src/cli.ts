@@ -1,6 +1,5 @@
 #!/usr/bin/env bun
-// Every subcommand is imported on demand: the stop hook runs at the end of
-// every session turn and must start fast.
+// Every subcommand is imported on demand: the stop hook runs at the end of every session turn and must start fast.
 const USAGE = `usage: ag <command>
 
   worktree setup    give this worktree its own environment and env files

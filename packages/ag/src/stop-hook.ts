@@ -1,13 +1,5 @@
 // `ag stop-hook` — the Stop hook of the sessions the runner launches.
-// Claude Code runs it every time the session ends a turn, with a JSON object
-// on stdin. The turn also ends when the session merely waits for a
-// background subagent, so "turn ended" is not "work done". The ticket's
-// labels are: the session's last step sets in-review or needs-human. With
-// one of them present the session is stopped; without, the stop is refused
-// and the session continues with the reason as its next input.
-// AG_MAX_STOP_BLOCKS (5) refusals per session, then the session is
-// stopped anyway, so a session that can never reach the label does not run
-// forever.
+// Claude Code runs it every time the session ends a turn, with a JSON object on stdin. The turn also ends when the session merely waits for a background subagent, so "turn ended" is not "work done". The ticket's labels are: the session's last step sets in-review or needs-human. With one of them present the session is stopped; without, the stop is refused and the session continues with the reason as its next input. AG_MAX_STOP_BLOCKS (5) refusals per session, then the session is stopped anyway, so a session that can never reach the label does not run forever.
 import { spawn } from "node:child_process";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
@@ -22,8 +14,7 @@ export type HookInput = { session_id: string; cwd: string };
 const counterPath = (sessionId: string): string =>
   join(homedir(), ".ag", "run", "stop-hook", sessionId);
 
-// Detached, because a child of the hook dies with the hook. The delay lets
-// the hook return and the turn end before the stop lands.
+// Detached, because a child of the hook dies with the hook. The delay lets the hook return and the turn end before the stop lands.
 function stopSession(sessionId: string): void {
   rmSync(counterPath(sessionId), { force: true });
   const child = spawn("sh", ["-c", 'sleep 2; claude stop "$1"', "sh", shortSessionId(sessionId)], {
