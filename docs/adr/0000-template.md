@@ -1,6 +1,6 @@
 # NNNN. Title
 
-**Status:** Proposed | Accepted | Superseded (by NNNN)
+**Status:** Proposed | Accepted | Superseded (by stack ADR NNNN or project ADR NNNN)
 
 ## Context
 
@@ -18,4 +18,4 @@ What we decided to do, stated plainly.
 
 ## Rejected
 
-Options examined and declined, each with the reason it lost. Keep this section when a declined option is likely to be proposed again; drop it when nothing serious was in the running.
+Options examined and declined, each with the reason it lost. Drop this section unless a declined option is likely to be proposed again.

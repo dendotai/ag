@@ -11,10 +11,16 @@ Write an ADR when **both** hold:
 
 This is the "this looks wrong but is deliberate" bar. It is **not** a log of every choice. Routine, self-evident, or convention-following decisions don't need one. When in doubt, ask: *would someone reasonably try to "fix" this later and undo a deliberate trade-off?* If yes, record it.
 
+## Folders
+
+- `stack/`: the ADRs stack ships. A stack update changes them, and the project never edits them.
+- `project/`: the project's own ADRs. A new ADR of the project goes here.
+- Each folder numbers its ADRs from `0001`, so a citation names the folder: `stack ADR 0003`, `project ADR 0003`.
+
 ## Format
 
-- One file per decision: `NNNN-kebab-title.md`, zero-padded sequential number (`0001-…`, `0002-…`). `0000-template.md` is the template, not a decision.
-- Copy `0000-template.md` to start.
+- One file per decision: `NNNN-kebab-title.md`, zero-padded sequential number within its folder (`0001-…`, `0002-…`). `0000-template.md` is the template, not a decision.
+- Copy `0000-template.md` into the folder to start.
 - Sections: **Title**, **Status**, **Context**, **Decision**, **Consequences**, and **Rejected** when a declined option is likely to be proposed again.
 - **Status**: `Proposed` · `Accepted` · `Superseded` (note the superseding ADR).
 

@@ -4,7 +4,9 @@
 
 ### Self-contained
 
-ag owns two directories: `.ag/` in a repository, and `~/.ag/` for the user. Everything ag writes lives in one of them. A machine with ag removed looks like a machine that never had it.
+ag's data lives in two directories: `.ag/` at the root of each repository ag works on (and of each worktree ag makes in it), and `~/.ag/` for the user. ag's data is everything the `ag` CLI writes. The desktop app writes none of it: it reads and acts through `ag` commands.
+
+The desktop app's technical files (window state, web view data, caches) live where the platform keeps an installed app's files, because every app that pairs a CLI with a desktop app splits its files this way. Removing ag means deleting `~/.ag/`, each repository's `.ag/`, the `ag` binary in `~/.local/bin/`, the `# ag` lines that `ag` added to a shell file, the app, and the app's platform folders.
 
 ### ag configures what it starts
 
